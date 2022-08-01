@@ -15,11 +15,10 @@ local function modassert(v, s)
 end
 
 local function insertifnotexist(t, s)
-    for _,v in ipairs(t) do
-        if v == s then
-            return false
-        end
+    if table.contains(t, s) then
+        return false
     end
+    
     table.insert(t, s)
     return true
 end

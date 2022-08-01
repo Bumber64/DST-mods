@@ -1,5 +1,6 @@
 
-if not GLOBAL.TheNet:GetIsServer() then
+local _G = GLOBAL
+if not _G.TheNet:GetIsServer() then
     return
 end
 
@@ -23,7 +24,7 @@ end
 -----------------------
 
 local function ensure_loot(ld, item, chance) --make sure lootdropper has item as chance loot with given minimum chance
-    local prob = GLOBAL.tonumber(chance) or 0.0
+    local prob = _G.tonumber(chance) or 0.0
 
     if not ld or prob <= 0.0 then
         return
@@ -33,7 +34,7 @@ local function ensure_loot(ld, item, chance) --make sure lootdropper has item as
     local found_entry = nil
     local found_value = 0.0
 
-    local lt = ld.chanceloottable and GLOBAL.LootTables[ld.chanceloottable] or nil
+    local lt = ld.chanceloottable and _G.LootTables[ld.chanceloottable] or nil
     if lt then
         for _, t in ipairs(lt) do
             if t[1] == item and t[2] > found_value then --better than previous

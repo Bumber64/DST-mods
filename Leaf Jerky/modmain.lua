@@ -4,10 +4,13 @@ PrefabFiles =
     "plantmeat_dried",
 }
 
+local _G = GLOBAL
+
 ----------------------------------------
 ------------- Descriptions -------------
 ----------------------------------------
-GLOBAL.STRINGS.NAMES.PLANTMEAT_DRIED = "Leaf Jerky"
+local STRINGS = _G.STRINGS
+STRINGS.NAMES.PLANTMEAT_DRIED = "Leaf Jerky"
 
 local char_text =
 {
@@ -30,7 +33,7 @@ local char_text =
     WANDA = "LEAFYMEATBURGER",
 }
 for ch, txt in pairs(char_text) do
-    GLOBAL.STRINGS.CHARACTERS[ch].DESCRIBE.PLANTMEAT_DRIED = GLOBAL.STRINGS.CHARACTERS[ch].DESCRIBE[txt]
+    STRINGS.CHARACTERS[ch].DESCRIBE.PLANTMEAT_DRIED = STRINGS.CHARACTERS[ch].DESCRIBE[txt]
 end
 
 ----------------------------------------
@@ -72,21 +75,21 @@ end
 ----------------------------------------
 ------------- Server Stuff -------------
 ----------------------------------------
-if not GLOBAL.TheNet:GetIsServer() then
+if not _G.TheNet:GetIsServer() then
     return
 end
 
 AddPrefabPostInit("plantmeat", function(inst)
     inst:AddComponent("dryable")
     inst.components.dryable:SetProduct("plantmeat_dried")
-    inst.components.dryable:SetDryTime(GLOBAL.TUNING.DRY_FAST)
+    inst.components.dryable:SetDryTime(_G.TUNING.DRY_FAST)
 end)
 
 AddPrefabPostInit("meatrack", function(inst)
     local oldfn = inst.components.dryer.ondonedrying
     local function new_ondonedrying(inst, product, buildfile)
         if product == "plantmeat_dried" then
-            if GLOBAL.POPULATING then
+            if _G.POPULATING then
                 inst.AnimState:PlayAnimation("idle_full")
             else
                 inst.AnimState:PlayAnimation("drying_pst")

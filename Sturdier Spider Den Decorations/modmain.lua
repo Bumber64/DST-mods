@@ -1,6 +1,5 @@
 
 local _G = GLOBAL
-
 if not _G.TheNet:GetIsServer() then
     return
 end

@@ -114,7 +114,7 @@ if WATER_PERCENT > 0.0 and not SMART_TARGET_CROPS then --need to acquire GetTile
         else
             modprint("GetSoilMoistureAtPoint not found. Upvalue hacking OnSave for _moisturegrid...")
             local _moisturegrid = UpvalueHacker.GetUpvalue(self.OnSave, "_moisturegrid")
-            modassert(_moisturegrid, "_moisturegrid not found in OnSave!")\
+            modassert(_moisturegrid, "_moisturegrid not found in OnSave!")
 
             function self:GetSoilMoistureAtPoint(x, y, z)
                 local tx, ty = _G.TheWorld.Map:GetTileCoordsAtPoint(x, y, z)

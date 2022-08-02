@@ -22,8 +22,8 @@ configuration_options =
         label = "Smart Target Witherables",
         hover = "Only target witherables when it's too hot out.",
         options =   {
-                        {description = "Enabled", data = true, hover = ""},
                         {description = "Disabled", data = false, hover = ""},
+                        {description = "Enabled", data = true, hover = ""},
                     },
         default = true,
     },
@@ -32,8 +32,8 @@ configuration_options =
         label = "Smart Target Crops",
         hover = "Only target crops when they actually need water.",
         options =   {
-                        {description = "Enabled", data = true, hover = "Water crops once per stage, and not when fully grown."},
                         {description = "Disabled", data = false, hover = "Keep the soil wet."},
+                        {description = "Enabled", data = true, hover = "Water crops once per stage, and not when fully grown."},
                     },
         default = true,
     },
@@ -42,8 +42,8 @@ configuration_options =
         label = "Target Soil",
         hover = "Target the center of each soil tile once, rather than every crop within it.",
         options =   {
-                        {description = "Enabled", data = true, hover = "Don't spam snowballs."},
                         {description = "Disabled", data = false, hover = "Not recommended. Snowballs can hit wrong tile for crops close to edge."},
+                        {description = "Enabled", data = true, hover = "Don't spam snowballs."},
                     },
         default = true,
     },

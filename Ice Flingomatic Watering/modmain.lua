@@ -112,19 +112,13 @@ if WATER_PERCENT > 0.0 and not SMART_TARGET_CROPS then --need to acquire GetTile
         if self.GetSoilMoistureAtPoint then
             modprint("GetSoilMoistureAtPoint found.")
         else
-            modprint("GetSoilMoistureAtPoint not found. Checking for GetTileDataAtPoint...")
-            local GTDAP --GetTileDataAtPoint
-            if self.GetTileDataAtPoint then
-                GTDAP = self.GetTileDataAtPoint
-            else
-                modprint("GetTileDataAtPoint not found. Upvalue hacking IsSoilMoistAtPoint for GetTileDataAtPoint...")
-                GTDAP = UpvalueHacker.GetUpvalue(self.IsSoilMoistAtPoint, "GetTileDataAtPoint")
-                modassert(GTDAP, "GetTileDataAtPoint not found in IsSoilMoistAtPoint!")
-            end
+            modprint("GetSoilMoistureAtPoint not found. Upvalue hacking OnSave for _moisturegrid...")
+            local _moisturegrid = UpvalueHacker.GetUpvalue(self.OnSave, "_moisturegrid")
+            modassert(_moisturegrid, "_moisturegrid not found in OnSave!")\
 
             function self:GetSoilMoistureAtPoint(x, y, z)
-                local data = GTDAP(false, x, y, z)
-                return data and data.soilmoisture or _G.TheWorld.state.wetness
+                local tx, ty = _G.TheWorld.Map:GetTileCoordsAtPoint(x, y, z)
+                return _moisturegrid:GetDataAtPoint(tx, ty) or _G.TheWorld.state.wetness
             end
             modprint("Defined GetSoilMoistureAtPoint.")
         end

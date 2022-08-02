@@ -18,7 +18,7 @@ local function insertifnotexist(t, s)
     if table.contains(t, s) then
         return false
     end
-    
+
     table.insert(t, s)
     return true
 end
@@ -102,21 +102,26 @@ local function SoilCoord(target) --returns a string unique to crop's map tile or
         local x, y, z = GetCenterCoord(target)
         return string.format("%d,%d", x, z)
     end
-    return nil
 end
 
 local is_point_dry --set to appropriate fn based on settings
-if WATER_PERCENT > 0.0 and not SMART_TARGET_CROPS then --need to acquire GetTileDataAtPoint and define GetSoilMoistureAtPoint
+if WATER_PERCENT > 0.0 and not SMART_TARGET_CROPS then --need to acquire _moisturegrid and define GetSoilMoistureAtPoint
     AddClassPostConstruct("components/farming_manager", function(self)
         modprint("Checking for GetSoilMoistureAtPoint...")
         if self.GetSoilMoistureAtPoint then
             modprint("GetSoilMoistureAtPoint found.")
         else
-            modprint("GetSoilMoistureAtPoint not found. Upvalue hacking OnSave for _moisturegrid...")
-            local _moisturegrid = UpvalueHacker.GetUpvalue(self.OnSave, "_moisturegrid")
-            modassert(_moisturegrid, "_moisturegrid not found in OnSave!")
+            modprint("GetSoilMoistureAtPoint not found.")
+            local _moisturegrid
 
             function self:GetSoilMoistureAtPoint(x, y, z)
+                if not _moisturegrid then
+                    modprint("_moisturegrid undefined. Upvalue hacking farming_manager.OnSave for _moisturegrid...")
+                    _moisturegrid = UpvalueHacker.GetUpvalue(self.OnSave, "_moisturegrid")
+                    modassert(_moisturegrid, "_moisturegrid still undefined!")
+                    modprint("Defined _moisturegrid.")
+                end
+
                 local tx, ty = _G.TheWorld.Map:GetTileCoordsAtPoint(x, y, z)
                 return _moisturegrid:GetDataAtPoint(tx, ty) or _G.TheWorld.state.wetness
             end

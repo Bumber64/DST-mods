@@ -93,14 +93,17 @@ end
 --------------- New Stuff -----------------
 -------------------------------------------
 
-local function GetCenterCoord(target) --helper function
-    return _G.TheWorld.Map:GetTileCenterPoint(target.Transform:GetWorldPosition())
+local function GetTileCoords(target) --helper function
+    return _G.TheWorld.Map:GetTileCoordsAtPoint(target.Transform:GetWorldPosition())
+end
+
+local function GetCenterCoords(target) --returns world coords of center of crop's tile
+    return _G.TheWorld.Map:GetTileCenterPoint(GetTileCoords(target))
 end
 
 local function SoilCoord(target) --returns a string unique to crop's map tile or nil
     if TARGET_CENTER and target and target:HasTag("farmplantstress") then
-        local x, y, z = GetCenterCoord(target)
-        return string.format("%d,%d", x, z)
+        return string.format("%d,%d", GetTileCoords(target))
     end
 end
 
@@ -122,8 +125,7 @@ if WATER_PERCENT > 0.0 and not SMART_TARGET_CROPS then --need to acquire _moistu
                     modprint("Defined _moisturegrid.")
                 end
 
-                local tx, ty = _G.TheWorld.Map:GetTileCoordsAtPoint(x, y, z)
-                return _moisturegrid:GetDataAtPoint(tx, ty) or _G.TheWorld.state.wetness
+                return _moisturegrid:GetDataAtPoint(_G.TheWorld.Map:GetTileCoordsAtPoint(x, y, z)) or _G.TheWorld.state.wetness
             end
             modprint("Defined GetSoilMoistureAtPoint.")
         end
@@ -204,7 +206,7 @@ local function LookForFiresAndFirestarters(inst, self, force) --allow targeting 
         if sc then --use center of soil tile
             my_RegisterDetectedItem(inst, self, sc) --register the string
             if self.onfindfire ~= nil then
-                local x, y, z = GetCenterCoord(target)
+                local x, y, z = GetCenterCoords(target)
                 self.onfindfire(inst, _G.Point(x, 0, z))
             end
         else --use position of entity

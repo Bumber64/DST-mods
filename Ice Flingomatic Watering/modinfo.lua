@@ -2,7 +2,7 @@
 name = "Ice Flingomatic Watering"
 description = "The ice flingomatic waters crops while active. Also has an option to only target witherable plants when it's hot enough to wither them."
 author = "Bumber"
-version = "1.6"
+version = "1.7"
 forumthread = ""
 
 icon_atlas = "modicon.xml"

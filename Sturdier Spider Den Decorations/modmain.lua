@@ -10,13 +10,6 @@ local function modprint(s)
     print("[Sturdier Spider Den Decorations] "..s)
 end
 
-local function modassert(v, s)
-    if not v then
-        _G.error("[Sturdier Spider Den Decorations] "..s)
-    end
-    return v
-end
-
 -------------------------------------------
 ---------- Find Existing Stuff ------------
 -------------------------------------------

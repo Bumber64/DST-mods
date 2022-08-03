@@ -1,0 +1,61 @@
+# Check for changes in these scripts when Klei updates DST, and make any necessary alterations to the mods.
+
+================= Mods =================
+
+BEES = Calm Down, Bees!
+BRCH = Sustainable Birchnuts
+COMP = Companion Configurator
+DSLR = Display Light Radius
+GHST = Ghost Fly Over Abyss
+ICEF = Ice Flingomatic Watering
+LEAF = Leaf Jerky
+LOOT = Loot Drop Tweaks
+MUSH = Improved Mushroom Planters
+RSLT = Respawn Light
+SPDR = Sturdier Spider Den Decorations
+
+================ Scripts ================
+
+brains/bunnymanbrain.lua -------- COMP
+brains/mermbrain.lua ------------ COMP
+brains/mermguardbrain.lua ------- COMP
+brains/pigbrain.lua ------------- COMP
+brains/rockybrain.lua ----------- COMP
+brains/smallbirdbrain.lua ------- COMP
+brains/spider_waterbrain.lua ---- COMP
+brains/spiderbrain.lua ---------- COMP
+
+components/farming_manager.lua -- ICEF
+components/firedetector.lua ----- ICEF
+components/follower.lua --------- COMP
+components/freezable.lua -------- COMP
+components/teleporter.lua ------- COMP
+
+prefabs/acorn.lua --------------- BRCH
+prefabs/bunnyman.lua ------------ COMP / LOOT
+prefabs/chester.lua ------------- COMP
+prefabs/deciduoustrees.lua ------ BRCH
+prefabs/firesuppressor.lua ------ ICEF
+prefabs/fruitfly.lua ------------ COMP
+prefabs/glommer.lua ------------- COMP
+prefabs/hutch.lua --------------- COMP
+prefabs/lavae_pet.lua ----------- COMP
+prefabs/meatrack.lua ------------ LEAF
+prefabs/meats.lua --------------- LEAF
+prefabs/merm.lua ---------------- COMP
+prefabs/mushroom_farm.lua ------- MUSH
+prefabs/mushtree_moonspore.lua -- MUSH
+prefabs/mushtree_spores.lua ----- MUSH
+prefabs/pigman.lua -------------- COMP / LOOT
+prefabs/polly_rogers.lua -------- COMP
+prefabs/rocky.lua --------------- COMP
+prefabs/smallbird.lua ----------- COMP
+prefabs/spider.lua -------------- COMP / SPDR
+prefabs/spiderden.lua ----------- SPDR
+prefabs/waterprojectiles.lua ---- ICEF
+
+preparedfoods.lua --------------- LEAF
+  (leafloaf, leafymeatburger, leafymeatsouffle, meatysalad)
+
+stategraphs/SGmoonspore.lua ----- MUSH
+stategraphs/SGlureplant.lua ----- LEAF

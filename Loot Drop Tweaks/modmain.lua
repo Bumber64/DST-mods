@@ -4,21 +4,6 @@ if not _G.TheNet:GetIsServer() then
     return
 end
 
-local warnings = {"batilisk_wing", "bee_honey", "bird_morsel", "bird_feather", "canary_saffron", "bunnyman_carrot", "bunnyman_meat", "bunnyman_tail",
-                  "catcoon_tail", "cookiecutter_shell", "dragonfly_egg", "hound_tooth", "hound_redgem", "hound_bluegem", "krampus_pack", "mactusk_hat",
-                  "mactusk_tusk", "pigman_meat", "pigman_skin", "spider_silk", "spider_gland", "slurtle_helm", "snurtle_armor", "tentacle_spot"}
-for _, v in ipairs(warnings) do
-    if type(GetModConfigData(v)) == "boolean" then
-        print("[Loot Drop Tweaks] WARNING: Data for option \""..v.."\" is invalid. Change it in mod config to enable mod!")
-        AddPlayerPostInit(function(inst)
-            inst:DoTaskInTime(1, function(inst)
-                inst.components.talker:Say("[Loot Drop Tweaks] Server mod config error: "..v)
-            end)
-        end)
-        return
-    end
-end
-
 -----------------------
 -- Utility functions --
 -----------------------

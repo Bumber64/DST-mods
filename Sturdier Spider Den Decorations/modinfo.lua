@@ -2,7 +2,7 @@
 name = "Sturdier Spider Den Decorations"
 description = "Prevents spider dens from becoming undecorated when nearby spiders are attacked by monsters."
 author = "Bumber"
-version = "1.3"
+version = "1.4"
 forumthread = ""
 
 icon_atlas = "modicon.xml"

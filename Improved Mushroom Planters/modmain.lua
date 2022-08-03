@@ -17,7 +17,10 @@ local function modprint(s)
 end
 
 local function modassert(v, s)
-    _G.assert(v, "[Improved Mushroom Planters] "..s)
+    if not v then
+        _G.error("[Improved Mushroom Planters] "..s)
+    end
+    return v
 end
 
 -------------------------------------------

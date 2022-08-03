@@ -11,7 +11,10 @@ local function modprint(s)
 end
 
 local function modassert(v, s)
-    _G.assert(v, "[Ice Flingomatic Watering] "..s)
+    if not v then
+        _G.error("[Ice Flingomatic Watering] "..s)
+    end
+    return v
 end
 
 local function insertifnotexist(t, s)

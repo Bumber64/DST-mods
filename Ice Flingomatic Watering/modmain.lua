@@ -104,6 +104,10 @@ local function GetCenterCoords(target) --returns world coords of center of crop'
     return _G.TheWorld.Map:GetTileCenterPoint(GetTileCoords(target))
 end
 
+local function is_on_soil(target) --only crops planted on soil can be watered
+    return _G.TheWorld.Map:GetTile(GetTileCoords(target)) == _G.WORLD_TILES.FARMING_SOIL
+end
+
 local function SoilCoord(target) --returns a string unique to crop's map tile or nil
     if TARGET_CENTER and target and target:HasTag("farmplantstress") then
         return string.format("%d,%d", GetTileCoords(target))
@@ -112,7 +116,7 @@ end
 
 local is_point_dry --set to appropriate fn based on settings
 if WATER_PERCENT > 0.0 and not SMART_TARGET_CROPS then --need to acquire _moisturegrid and define GetSoilMoistureAtPoint
-    AddClassPostConstruct("components/farming_manager", function(self)
+    AddComponentPostInit("farming_manager", function(self)
         modprint("Checking for GetSoilMoistureAtPoint...")
         if self.GetSoilMoistureAtPoint then
             modprint("GetSoilMoistureAtPoint found.")
@@ -170,7 +174,7 @@ local function CheckTargetScore(target) --added crops; smarter witherable handli
     end
 
     local ps = target.components.farmplantstress
-    if ps and ps.stressors.moisture then --only target plants that require moisture
+    if ps and ps.stressors.moisture and is_on_soil(target) then --only target plants that require moisture and can be watered
         local thirsty = not SMART_TARGET_CROPS or --option to skip if plant doesn't need water right now
             ps.stressors_testfns.moisture and ps.stressors_testfns.moisture(target, ps.stressors.moisture, false) and --moisture need is unmet
             (not target.components.growable or target.components.growable:GetCurrentStageData().tendable) --only target growing crops
@@ -225,7 +229,7 @@ end
 ---------------- Finally ------------------
 -------------------------------------------
 
-AddClassPostConstruct("components/firedetector", function(self)
+AddComponentPostInit("firedetector", function(self)
     find_fdetector_upvalues(self)
     modprint("Replacing LookForFiresAndFirestarters in firedetector component.")
     UpvalueHacker.SetUpvalue(self.Activate, LookForFiresAndFirestarters, "LookForFiresAndFirestarters")

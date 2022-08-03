@@ -11,7 +11,10 @@ local function modprint(s)
 end
 
 local function modassert(v, s)
-    _G.assert(v, "[Sturdier Spider Den Decorations] "..s)
+    if not v then
+        _G.error("[Sturdier Spider Den Decorations] "..s)
+    end
+    return v
 end
 
 -------------------------------------------

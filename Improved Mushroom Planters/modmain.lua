@@ -199,10 +199,11 @@ local function accepttest(inst, item) --accept items in fert_values, accept moon
     return true
 end
 
+local FULLY_REPAIRED_WORKLEFT = 3
 local function onacceptitem(inst, giver, item) --apply fert value; handle item removal
     if fert_values[item.prefab] then
         inst.remainingharvests = math.min(inst.remainingharvests + fert_values[item.prefab], _G.TUNING.MUSHROOMFARM_MAX_HARVESTS)
-        inst.components.workable:SetWorkLeft(3)
+        inst.components.workable:SetWorkLeft(FULLY_REPAIRED_WORKLEFT)
         updatelevel(inst)
     else
         my_StartGrowing(inst, giver, item)

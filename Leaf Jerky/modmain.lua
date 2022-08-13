@@ -4,11 +4,10 @@ PrefabFiles =
     "plantmeat_dried",
 }
 
-local _G = GLOBAL
-
 ----------------------------------------
 ------------- Descriptions -------------
 ----------------------------------------
+local _G = GLOBAL
 local STRINGS = _G.STRINGS
 STRINGS.NAMES.PLANTMEAT_DRIED = "Leaf Jerky"
 
@@ -82,7 +81,7 @@ end
 AddPrefabPostInit("plantmeat", function(inst)
     inst:AddComponent("dryable")
     inst.components.dryable:SetProduct("plantmeat_dried")
-    inst.components.dryable:SetDryTime(_G.TUNING.DRY_FAST)
+    inst.components.dryable:SetDryTime(TUNING.DRY_FAST)
 end)
 
 AddPrefabPostInit("meatrack", function(inst)

@@ -29,7 +29,7 @@ end
 
 local MAX_HARVESTS = GetModConfigData("max_harvests") --0: default, -1: unlimited
 if MAX_HARVESTS > 0 then
-    _G.TUNING.MUSHROOMFARM_MAX_HARVESTS = MAX_HARVESTS
+    TUNING.MUSHROOMFARM_MAX_HARVESTS = MAX_HARVESTS
 end
 
 local SNOW_GROW = GetModConfigData("snow_grow") --grow or pause in snow
@@ -38,7 +38,7 @@ local MOON_SPORE = GetModConfigData("moon_spore") --allow catching and planting 
 
 local fert_values =
 {
-    livinglog = _G.TUNING.MUSHROOMFARM_MAX_HARVESTS,
+    livinglog = TUNING.MUSHROOMFARM_MAX_HARVESTS,
 }
 
 if GetModConfigData("easy_fert") then
@@ -189,7 +189,7 @@ local function accepttest(inst, item) --accept items in fert_values, accept moon
         return false
     elseif inst.remainingharvests == 0 and not fert_values[item.prefab] then
         return false, "MUSHROOMFARM_NEEDSLOG"
-    elseif inst.remainingharvests < _G.TUNING.MUSHROOMFARM_MAX_HARVESTS and fert_values[item.prefab] then
+    elseif inst.remainingharvests < TUNING.MUSHROOMFARM_MAX_HARVESTS and fert_values[item.prefab] then
         return true
     elseif not (item:HasTag("mushroom") or item:HasTag("spore")) then
         return false, "MUSHROOMFARM_NEEDSSHROOM"
@@ -202,7 +202,7 @@ end
 local FULLY_REPAIRED_WORKLEFT = 3
 local function onacceptitem(inst, giver, item) --apply fert value; handle item removal
     if fert_values[item.prefab] then
-        inst.remainingharvests = math.min(inst.remainingharvests + fert_values[item.prefab], _G.TUNING.MUSHROOMFARM_MAX_HARVESTS)
+        inst.remainingharvests = math.min(inst.remainingharvests + fert_values[item.prefab], TUNING.MUSHROOMFARM_MAX_HARVESTS)
         inst.components.workable:SetWorkLeft(FULLY_REPAIRED_WORKLEFT)
         updatelevel(inst)
     else
@@ -310,7 +310,7 @@ local function onworked(inst, worker) --give item instead of popping
 end
 
 local function onpickup(inst) --same as regular spores, but need to stop testing
-    inst.components.perishable:SetLocalMultiplier( _G.TUNING.SEG_TIME*3 / _G.TUNING.PERISH_SLOW )
+    inst.components.perishable:SetLocalMultiplier( TUNING.SEG_TIME*3 / TUNING.PERISH_SLOW )
     my_stop_testing(inst) --stop looking for targets
     if inst.crowdingtask then
         inst.crowdingtask:Cancel()
@@ -343,7 +343,7 @@ local function ondropped(inst) --same as regular spores, but we need to resume t
         depleted(inst) --explode immediately
         return
     elseif not inst.crowdingtask then
-        inst.crowdingtask = inst:DoTaskInTime(_G.TUNING.MUSHSPORE_DENSITY_CHECK_TIME + math.random()*_G.TUNING.MUSHSPORE_DENSITY_CHECK_VAR, my_checkforcrowding)
+        inst.crowdingtask = inst:DoTaskInTime(TUNING.MUSHSPORE_DENSITY_CHECK_TIME + math.random()*TUNING.MUSHSPORE_DENSITY_CHECK_VAR, my_checkforcrowding)
     end
     inst.sg:GoToState("takeoff") --give player time to get away
     my_schedule_testing(inst) --start looking for targets

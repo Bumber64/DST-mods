@@ -4,6 +4,11 @@ if not _G.TheNet:GetIsServer() then
     return
 end
 
+local TheSim = _G.TheSim
+local EQUIPSLOTS = _G.EQUIPSLOTS
+local ACTIONS = _G.ACTIONS
+local BufferedAction = _G.BufferedAction
+
 local UpvalueHacker = require("tools/upvaluehacker") --Rezecib's upvalue hacker
 
 local function modprint(s)
@@ -20,20 +25,23 @@ end
 -------------------------------------------
 ---------------- Settings -----------------
 -------------------------------------------
-local ts = _G.tostring --DEBUG
-local sf = string.format --DEBUG
 
-local cfg =
+local cfg = --pmonkey, pmate, SGslurper (hat, compan), cutless
 {
     ALL_NOFUMBLE = 0, --0:Default, 1:stronggrip
     BEARGER_NOFUMBLE = 0, --0:Default, 1:NoFumble
     BEARGER_NOSMASH = 0, --0:Default, 1:Containers, 2:CalmWalk, 3:Beehives
     BEARGER_NOSTEAL = 0, --0:Default, 1:Containers, 2:Structures, 3:Pickables
+    FROG_PLAYER_NOSTEAL = 0, --0:Default, 1:NoSteal
+    FROG_NOSTEAL = 0, --0:Default, 1:Followers, 2:All(lureplant, catcoon)
     MOOSE_NOFUMBLE = 0, --0:Default, 1:NoFumble
-    WET_NOFUMBLE = 0, --0:Default, 1:Tool, 2:Drown
+    SLURTLE_NOSTEAL = 0, --0:Default, 1:Containers(chester, unworn pack), 2:Players(no attack)
+    SPLUMONKEY_CHEST_NOSTEAL = 0, --0:Default, 1:Containers(hutch)
+    SPLUMONKEY_NOSTEAL = 0, --0:Default, 1:Misc(drops, targeted), 2:Hats, 3:Pickables, 4:Food
+    WET_NOFUMBLE = 0, --0:Default, 1:Tool, 2:Drown(stronggrip active item)
 }
 
---Watch: brains/beargerbrain.lua; components/drownable.lua; prefabs/bearger.lua, player_common.lua; stategraph/SGmoose.lua
+--Watch: brains/beargerbrain.lua, monkeybrain.lua, slurtlebrain.lua, slurtlesnailbrain.lua; components/drownable.lua; prefabs/bearger.lua, player_common.lua; stategraph/SGmoose.lua
 
 -------------------------------------------
 ----------------- Players -----------------
@@ -110,7 +118,7 @@ if cfg.BEARGER_NOFUMBLE > 0 or cfg.BEARGER_NOSMASH > 1 then
         if other and other:IsValid() and
             other.components.workable and
             other.components.workable:CanBeWorked() and
-            other.components.workable.action ~= _G.ACTIONS.NET then
+            other.components.workable.action ~= ACTIONS.NET then
                 local speed_sq = _G.Vector3(inst.Physics:GetVelocity()):LengthSq()
                 if speed_sq >= 1 and (speed_sq >= ANGRYWALK_SQ or other:HasTag("tree") or other:HasTag("boulder")) and
                     not inst.recentlycharged[other] then
@@ -209,7 +217,7 @@ if cfg.BEARGER_NOSTEAL > 0 or cfg.BEARGER_NOSMASH > 0 then
         end
     end
 
-    local chest_action = cfg.BEARGER_NOSMASH == 0 and _G.ACTIONS.HAMMER or _G.ACTIONS.STEAL
+    local chest_action = cfg.BEARGER_NOSMASH == 0 and ACTIONS.HAMMER or ACTIONS.STEAL
 
     local SEE_STRUCTURE_DIST = 30 --defaults from beargerbrain.lua
     local NO_TAGS = {"FX", "NOCLICK", "DECOR", "INLIMBO", "burnt"}
@@ -221,7 +229,7 @@ if cfg.BEARGER_NOSTEAL > 0 or cfg.BEARGER_NOSMASH > 0 then
         end
 
         local x, y, z = inst.Transform:GetWorldPosition()
-        local ents = _G.TheSim:FindEntities(x, y, z, SEE_STRUCTURE_DIST, nil, NO_TAGS)
+        local ents = TheSim:FindEntities(x, y, z, SEE_STRUCTURE_DIST, nil, NO_TAGS)
         local targets = {}
 
         for i, item in ipairs(ents) do
@@ -269,27 +277,27 @@ if cfg.BEARGER_NOSTEAL > 0 or cfg.BEARGER_NOSMASH > 0 then
         end
 
         if targets.stewer and cfg.BEARGER_NOSTEAL < 2 then --0:Default, 1:Containers, 2:Structures, 3:Pickables
-            return _G.BufferedAction(inst, targets.stewer, _G.ACTIONS.HARVEST)
+            return BufferedAction(inst, targets.stewer, ACTIONS.HARVEST)
         elseif targets.beebox and cfg.BEARGER_NOSTEAL < 2 then
-            return _G.BufferedAction(inst, targets.beebox, _G.ACTIONS.HARVEST)
+            return BufferedAction(inst, targets.beebox, ACTIONS.HARVEST)
         elseif targets.honeyed_fridge and cfg.BEARGER_NOSTEAL < 1 then
-            return _G.BufferedAction(inst, targets.honeyed_fridge, chest_action) --target and action depends on cfg.BEARGER_NOSMASH
+            return BufferedAction(inst, targets.honeyed_fridge, chest_action) --target and action depends on cfg.BEARGER_NOSMASH
         elseif targets.honeyed_chest and cfg.BEARGER_NOSTEAL < 1 then
-            return _G.BufferedAction(inst, targets.honeyed_chest, chest_action)
+            return BufferedAction(inst, targets.honeyed_chest, chest_action)
         elseif targets.honeyed_backpack and cfg.BEARGER_NOSTEAL < 1 then
-            return _G.BufferedAction(inst, targets.honeyed_backpack, _G.ACTIONS.STEAL)
+            return BufferedAction(inst, targets.honeyed_backpack, ACTIONS.STEAL)
         elseif targets.harvestable and cfg.BEARGER_NOSTEAL < 2 then
-            return _G.BufferedAction(inst, targets.harvestable, _G.ACTIONS.HARVEST)
+            return BufferedAction(inst, targets.harvestable, ACTIONS.HARVEST)
         elseif targets.mushroom_farm and cfg.BEARGER_NOSTEAL < 2 then
-            return _G.BufferedAction(inst, targets.mushroom_farm, _G.ACTIONS.HARVEST)
+            return BufferedAction(inst, targets.mushroom_farm, ACTIONS.HARVEST)
         elseif targets.fridge and cfg.BEARGER_NOSTEAL < 1 then
-            return _G.BufferedAction(inst, targets.fridge, chest_action)
+            return BufferedAction(inst, targets.fridge, chest_action)
         elseif targets.chest and cfg.BEARGER_NOSTEAL < 1 then
-            return _G.BufferedAction(inst, targets.chest, chest_action)
+            return BufferedAction(inst, targets.chest, chest_action)
         elseif targets.backpack and cfg.BEARGER_NOSTEAL < 1 then
-            return _G.BufferedAction(inst, targets.backpack, _G.ACTIONS.STEAL)
+            return BufferedAction(inst, targets.backpack, ACTIONS.STEAL)
         elseif targets.pickable and cfg.BEARGER_NOSTEAL < 3 then
-            return _G.BufferedAction(inst, targets.pickable, _G.ACTIONS.PICK)
+            return BufferedAction(inst, targets.pickable, ACTIONS.PICK)
         end
     end
 
@@ -326,6 +334,33 @@ if cfg.BEARGER_NOSTEAL > 0 or cfg.BEARGER_NOSMASH > 0 then
 end
 
 -------------------------------------------
+------------------ Frogs ------------------
+-------------------------------------------
+
+if cfg.FROG_NOSTEAL > 0 then --0:Default, 1:Players, 2:Followers, 3:All
+    local function OnHitOther(inst, other, damage, oldfn)
+        if cfg.FROG_NOSTEAL > 2 or other:HasTag("player") then
+            return
+        elseif cfg.FROG_NOSTEAL == 2 then
+            local f = other.components.follower
+            if f and f.leader and (f.leader.components.inventoryitem or f.leader:HasTag("player")) then
+                return
+            end
+        end
+        oldfn(inst, other, damage)
+    end
+
+    AddPrefabPostInit("frog", function(inst)
+        local oldhitfn = inst.components.combat.onhitotherfn
+        if oldhitfn then
+            inst.components.combat.onhitotherfn = function(inst, other, damage)
+                OnHitOther(inst, other, damage, oldhitfn)
+            end
+        end
+    end)
+end
+
+-------------------------------------------
 --------------- Moose/Goose ---------------
 -------------------------------------------
 
@@ -342,5 +377,270 @@ if cfg.MOOSE_NOFUMBLE > 0 then
 
     AddStategraphPostInit("moose", function(self)
         no_disarm(self)
+    end)
+end
+
+-------------------------------------------
+------------- Slurtle/Snurtle -------------
+-------------------------------------------
+
+if cfg.SLURTLE_NOSTEAL > 0 then --0:Default, 1:Containers, 2:Players
+
+    local SEE_FOOD_DIST = 13 --defaults from slurtlebrain.lua and slurtlesnailbrain.lua
+    local STEALFOOD_CANT_TAGS = {"playerghost", "fire", "burnt", "INLIMBO", "outofreach"}
+    local STEALFOOD_ONEOF_TAGS = {"player"} --removed "_container" since we wouldn't be here otherwise
+
+    local function StealFoodAction(inst) --limit targets based on config
+        if cfg.SLURTLE_NOSTEAL > 1 or inst.sg:HasStateTag("busy") then
+            return
+        end
+
+        local x, y, z = inst.Transform:GetWorldPosition()
+        local ents = TheSim:FindEntities(x, y, z, SEE_FOOD_DIST, nil, STEALFOOD_CANT_TAGS, STEALFOOD_ONEOF_TAGS)
+
+        for i, v in ipairs(ents) do
+            local inv = v.components.inventory
+            if inv and v:IsOnValidGround() then
+                local pack = inv:GetEquippedItem(EQUIPSLOTS.BODY)
+                local validfood = {}
+                if pack and pack.components.container then
+                    for k = 1, pack.components.container.numslots do
+                        local item = pack.components.container.slots[k]
+                        if item and item.components.edible and inst.components.eater:CanEat(item) then
+                            table.insert(validfood, item)
+                        end
+                    end
+                end
+
+                for k = 1, inv.maxslots do
+                    local item = inv.itemslots[k]
+                    if item and item.components.edible and inst.components.eater:CanEat(item) then
+                        table.insert(validfood, item)
+                    end
+                end
+
+                if #validfood > 0 then
+                    local itemtosteal = validfood[math.random(1, #validfood)]
+                    if itemtosteal then
+                        local act = BufferedAction(inst, itemtosteal, ACTIONS.STEAL)
+                        act.validfn = function() return (itemtosteal.components.inventoryitem and itemtosteal.components.inventoryitem:IsHeld()) end
+                        act.attack = true
+                        return act
+                    end
+                end
+            end
+        end
+    end
+
+    AddBrainPostInit("slurtlebrain", function(self)
+        local node = self.bt.root.children[5]
+        if node and node.name == "DoAction" then
+            node.getactionfn = StealFoodAction
+        else
+            modprint("Slurtle brain surgery failed!")
+        end
+        node = nil
+    end)
+
+    AddBrainPostInit("slurtlesnailbrain", function(self)
+        local node = self.bt.root.children[5]
+        if node and node.name == "DoAction" then
+            node.getactionfn = StealFoodAction
+        else
+            modprint("Snurtle brain surgery failed!")
+        end
+        node = nil
+    end)
+end
+
+-------------------------------------------
+---------------- Splumonkey ---------------
+-------------------------------------------
+
+if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_CHEST_NOSTEAL > 0 then
+
+    local SEE_FOOD_DIST = 10 --defaults from monkeybrain.lua
+    local TIME_BETWEEN_EATING = 30
+    local PICKUP_ONEOF_TAGS = {"_inventoryitem", "pickable", "readyforharvest"}
+    local NO_LOOTING_TAGS = {"INLIMBO", "catchable", "fire", "irreplaceable", "heavy", "outofreach", "spider"}
+    local NO_PICKUP_TAGS = _G.deepcopy(NO_LOOTING_TAGS)
+    table.insert(NO_PICKUP_TAGS, "_container")
+
+    local ValidFoodsToPick = --modified from monkeybrain.lua for efficiency
+    {
+        berries = true,
+        cave_banana = true,
+        carrot = true,
+        red_cap = true,
+        blue_cap = true,
+        green_cap = true,
+    }
+
+    local function EatFoodAction(inst) --limit targets based on config, streamline function
+        if inst.sg:HasStateTag("busy") or
+            (inst.components.eater:TimeSinceLastEating() and inst.components.eater:TimeSinceLastEating() < TIME_BETWEEN_EATING) or
+            (inst.components.inventory and inst.components.inventory:IsFull()) or
+            math.random() < .75 then
+                return
+        elseif inst.components.inventory and inst.components.eater then --eat from inventory
+            local target = inst.components.inventory:FindItem(function(item) return inst.components.eater:CanEat(item) end)
+            if target then
+                return BufferedAction(inst, target, ACTIONS.EAT)
+            end
+        end
+
+        if cfg.SPLUMONKEY_NOSTEAL > 3 then
+            return --don't acquire new items
+        end
+
+        local x, y, z = inst.Transform:GetWorldPosition()
+        local ents = TheSim:FindEntities(x, y, z, SEE_FOOD_DIST, nil, NO_PICKUP_TAGS, PICKUP_ONEOF_TAGS)
+
+        local targets = {} --do in one pass like bearger
+        local wants_hat = cfg.SPLUMONKEY_NOSTEAL < 2 and inst.components.inventory and not inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HEAD)
+
+        for i, item in ipairs(ents) do
+            if wants_hat and item.components.equippable and --Hats
+                item.components.equippable.equipslot == EQUIPSLOTS.HEAD and
+                item.components.inventoryitem and
+                item.components.inventoryitem.canbepickedup and
+                item:IsOnValidGround() then
+                    return BufferedAction(inst, item, ACTIONS.PICKUP)
+            elseif not targets.food and item:GetTimeAlive() > 8 and --Food
+                item.components.inventoryitem and
+                item.components.inventoryitem.canbepickedup and
+                inst.components.eater:CanEat(item) and
+                item:IsOnValidGround() then
+                    targets.food = item
+            elseif cfg.SPLUMONKEY_NOSTEAL < 3 then --Pickables (and pre-RWYS crops)
+                if item.components.pickable then
+                    if not targets.pickable and item.components.pickable.caninteractwith and
+                        item.components.pickable:CanBePicked() and
+                        (item.prefab == "worm" or ValidFoodsToPick[item.components.pickable.product]) then
+                            targets.pickable = item
+                    end
+                elseif not targets.crop and item.components.crop and item.components.crop:IsReadyForHarvest() then
+                    targets.crop = item
+                end
+            end
+        end
+
+        if targets.food then
+            return BufferedAction(inst, targets.food, ACTIONS.PICKUP)
+        elseif targets.pickable then
+            return BufferedAction(inst, targets.pickable, ACTIONS.PICK)
+        elseif targets.crop then
+            return BufferedAction(inst, targets.crop, ACTIONS.HARVEST)
+        end --never do curious stealing
+    end
+
+    local function OnLootingCooldown(inst) --from monkeybrain.lua
+        inst._canlootcheststask = nil
+        inst.canlootchests = true
+    end
+
+    local ANNOY_ONEOF_TAGS = { "_inventoryitem", "_container" }
+    local ANNOY_ALT_MUST_TAG = { "_inventoryitem" }
+    local function AnnoyLeader(inst) --limit targets based on config
+        if inst.sg:HasStateTag("busy") then
+            return
+        end
+
+        local lootchests = cfg.SPLUMONKEY_CHEST_NOSTEAL == 0 and inst.canlootchests ~= false
+        local px, py, pz = inst.harassplayer.Transform:GetWorldPosition()
+        local mx, my, mz = inst.Transform:GetWorldPosition()
+        local ents = lootchests and TheSim:FindEntities(mx, 0, mz, 30, nil, NO_LOOTING_TAGS, ANNOY_ONEOF_TAGS) or
+            TheSim:FindEntities(mx, 0, mz, 30, ANNOY_ALT_MUST_TAG, NO_PICKUP_TAGS)
+
+        if cfg.SPLUMONKEY_NOSTEAL == 0 then --Misc not protected
+            for i, v in ipairs(ents) do --recent drops
+                if v.components.inventoryitem and
+                    v.components.inventoryitem.canbepickedup and
+                    v.components.container == nil and
+                    v:GetTimeAlive() < 5 then
+                        return BufferedAction(inst, v, ACTIONS.PICKUP)
+                end
+            end
+
+            local ba = inst.harassplayer:GetBufferedAction()
+            if ba and ba.action.id == "PICKUP" then --targeted item
+                local tar = ba.target
+                if tar and tar:IsValid() and tar.components.inventoryitem and not tar.components.inventoryitem:IsHeld() and
+                    tar.components.container == nil and not (tar:HasTag("irreplaceable") or tar:HasTag("heavy") or tar:HasTag("outofreach")) and
+                    not (tar.components.burnable and tar.components.burnable:IsBurning()) and
+                    not (tar.components.projectile and tar.components.projectile.cancatch and tar.components.projectile.target) then
+                        local tx, ty, tz = tar.Transform:GetWorldPosition()
+                        return _G.distsq(px, pz, tx, tz) > _G.distsq(mx, mz, tx, tz) and BufferedAction(inst, tar, ACTIONS.PICKUP) or nil
+                end
+            end
+        end
+
+        if lootchests then
+            local items = {}
+            for i, v in ipairs(ents) do
+                if v.components.container and
+                    v.components.container.canbeopened and
+                    not v.components.container:IsOpen() and
+                    v:GetDistanceSqToPoint(px, 0, pz) < 225 then
+                        for k = 1, v.components.container.numslots do
+                            local item = v.components.container.slots[k]
+                            if item then
+                                table.insert(items, item)
+                            end
+                        end
+                end
+            end
+
+            if #items > 0 then
+                inst.canlootchests = false
+                if inst._canlootcheststask then
+                    inst._canlootcheststask:Cancel()
+                end
+
+                inst._canlootcheststask = inst:DoTaskInTime(math.random(15, 30), OnLootingCooldown)
+                local item = items[math.random(#items)]
+                local act = BufferedAction(inst, item, ACTIONS.STEAL)
+                act.validfn = function()
+                    local owner = item.components.inventoryitem and item.components.inventoryitem.owner or nil
+                    return owner and
+                        not (owner.components.inventoryitem and owner.components.inventoryitem:IsHeld()) and
+                        not (owner.components.burnable and owner.components.burnable:IsBurning()) and
+                        owner.components.container and owner.components.container.canbeopened and
+                        not owner.components.container:IsOpen()
+                end
+                return act
+            end
+        end
+    end
+
+    local function splumonkey_surgery(root)
+        if cfg.SPLUMONKEY_NOSTEAL > 0 then
+            local node = root.children[7]
+            if node and node.children and node.children[1] and node.children[2] and
+                node.children[1].name == "Should Eat" and
+                node.children[2].name == "DoAction" then
+                    node.children[2].getactionfn = EatFoodAction
+            else
+                modprint("Splumonkey brain surgery #1 failed!")
+                return
+            end
+        end
+
+        local node = root.children[10]
+        if node and node.children and node.children[1] and node.children[2] and
+            node.children[1].name == "Annoy Leader" and
+            node.children[2].name == "DoAction" then
+                if cfg.SPLUMONKEY_CHEST_NOSTEAL == 0 or cfg.SPLUMONKEY_NOSTEAL == 0 then
+                    node.children[2].getactionfn = AnnoyLeader
+                else --no looting chests or stealing misc items
+                    node.children[2].getactionfn = function(inst) end
+                end
+        else
+            modprint("Splumonkey brain surgery #2 failed!")
+        end
+    end
+
+    AddBrainPostInit("monkeybrain", function(self)
+        splumonkey_surgery(self.bt.root)
     end)
 end

@@ -22,8 +22,10 @@ local function modassert(v, s)
     return v
 end
 
-local ts = _G.tostring --DEBUG
-local sf = string.format --DEBUG
+local function is_player_follower(inst)
+    local f = inst.components.follower
+    return f and f.leader and (f.leader.components.inventoryitem or f.leader:HasTag("player"))
+end
 
 -------------------------------------------
 ---------------- Settings -----------------
@@ -33,22 +35,23 @@ local cfg = --SGslurper (hat, compan)
 {
     ALL_NOFUMBLE = 0, --0:Default, 1:stronggrip
     BEARGER_NOFUMBLE = 0, --0:Default, 1:NoFumble
-    BEARGER_NOSMASH = 0, --0:Default, 1:Containers, 2:CalmWalk, 3:Beehives
+    BEARGER_NOSMASH = 0, --0:Default, 1:Containers(empty), 2:CalmWalk, 3:Beehives
     BEARGER_NOSTEAL = 0, --0:Default, 1:Containers, 2:Structures, 3:Pickables
     CUTLESS_NOSTEAL = 0, --0:Default, 1:FromPlayers, 2:FromFollowers, 3:FromAll
     CUTLESS_PLAYER_NOSTEAL = 0, --0:Default, 1:FromPlayers, 2:FromFollowers, 3:FromAll
     FROG_NOSTEAL = 0, --0:Default, 1:Players, 2:Followers, 3:All(lureplant, catcoon)
     MOOSE_NOFUMBLE = 0, --0:Default, 1:NoFumble
-    PMONKEY_NOSMASH = 0, --0:Default, 1:Mast, 2:NoEmptyChest, 3:NoTinker(malb, anchor)
+    PMONKEY_NOSMASH = 2, --0:Default, 1:Mast(sail), 2:NoEmptyChest, 3:NoTinker(malb, anchor)
     PMONKEY_NOSTEAL = 0, --0:Default, 1:Players, 2:Followers, 3:All
-    PMONKEY_NOSTEAL_GROUND = 0, --0:Default, 1:Misc, 2:Bananas(will pick)
+    PMONKEY_NOSTEAL_GROUND = 2, --0:Default, 1:WearHat(still steal), 2:Misc, 3:Bananas(will pick)
     SLURTLE_NOSTEAL = 0, --0:Default, 1:Containers(chester, unworn pack), 2:Players
     SPLUMONKEY_NOCHEST = 0, --0:Default, 1:Containers(hutch)
     SPLUMONKEY_NOSTEAL = 0, --0:Default, 1:Misc(drops, targeted), 2:Hats, 3:Pickables, 4:Food
     WET_NOFUMBLE = 0, --0:Default, 1:Tool, 2:Drown(stronggrip active item)
 }
 
---Watch: brains/beargerbrain.lua, monkeybrain.lua, powdermonkeybrain.lua, slurtlebrain.lua, slurtlesnailbrain.lua; components/drownable.lua; prefabs/bearger.lua, player_common.lua; stategraph/SGmoose.lua
+--Watch: brains/beargerbrain.lua, monkeybrain.lua, powdermonkeybrain.lua, slurtlebrain.lua, slurtlesnailbrain.lua
+--  components/drownable.lua; prefabs/bearger.lua, player_common.lua, powdermonkey.lua; stategraph/SGmoose.lua
 
 -------------------------------------------
 ----------------- Players -----------------
@@ -168,6 +171,14 @@ if cfg.BEARGER_NOFUMBLE > 0 or cfg.BEARGER_NOSMASH > 1 then
 end
 
 if cfg.BEARGER_NOSTEAL > 0 or cfg.BEARGER_NOSMASH > 0 then
+    local chest_action
+    if cfg.BEARGER_NOSMASH == 0 then
+        chest_action = ACTIONS.HAMMER
+    else
+        chest_action = ACTIONS.EMPTY_CONTAINER
+        AddStategraphActionHandler("bearger", _G.ActionHandler(ACTIONS.EMPTY_CONTAINER, "steal"))
+    end
+
     local function hfood_fn(item, inst) --return first honeyed edible or nil
         return item.components.container:FindItem(function(food) return inst.components.eater:CanEat(food) and food:HasTag("honeyed") end)
     end
@@ -175,56 +186,6 @@ if cfg.BEARGER_NOSTEAL > 0 or cfg.BEARGER_NOSMASH > 0 then
     local function food_fn(item, inst) --return first edible or nil
         return item.components.container:FindItem(function(food) return inst.components.eater:CanEat(food) end)
     end
-
-    local function chest_fn(item, inst, targets) --handle fridges and chests; return true if isn't either
-        if cfg.BEARGER_NOSMASH == 0 then --target container for hammering
-            if item:HasTag("fridge") and item.components.workable then
-                if targets.honeyed_fridge == nil then
-                    if hfood_fn(item, inst) then
-                        targets.honeyed_fridge = item
-                        targets.fridge = nil
-                    elseif food_fn(item, inst) then
-                        targets.fridge = item
-                    end
-                end
-            elseif item:HasTag("chest") and item.components.workable then
-                if targets.honeyed_chest == nil then
-                    if hfood_fn(item, inst) then
-                        targets.honeyed_chest = item
-                        targets.chest = nil
-                    elseif food_fn(item, inst) then
-                        targets.chest = item
-                    end
-                end
-            else
-                return true --move on to backpack check
-            end
-        else --target an item for stealing from container
-            if item:HasTag("fridge") then
-                if targets.honeyed_fridge == nil then
-                    targets.honeyed_fridge = hfood_fn(item, inst)
-                    if targets.honeyed_fridge then
-                        targets.fridge = nil
-                    elseif targets.fridge == nil then
-                        targets.fridge = food_fn(item, inst)
-                    end
-                end
-            elseif item:HasTag("chest") then
-                if targets.honeyed_chest == nil then
-                    targets.honeyed_chest = hfood_fn(item, inst)
-                    if targets.honeyed_chest then
-                        targets.chest = nil
-                    elseif targets.chest == nil then
-                        targets.chest = food_fn(item, inst)
-                    end
-                end
-            else
-                return true --move on to backpack check
-            end
-        end
-    end
-
-    local chest_action = cfg.BEARGER_NOSMASH == 0 and ACTIONS.HAMMER or ACTIONS.STEAL
 
     local SEE_STRUCTURE_DIST = 30 --defaults from beargerbrain.lua
     local NO_TAGS = {"FX", "NOCLICK", "DECOR", "INLIMBO", "burnt"}
@@ -262,9 +223,26 @@ if cfg.BEARGER_NOSTEAL > 0 or cfg.BEARGER_NOSMASH > 0 then
                         targets.mushroom_farm = item
                     end
                 elseif item.components.container then
-                    if not item.components.container:IsEmpty() and
-                        chest_fn(item, inst, targets) and --handle fridges and chests
-                        item:HasTag("backpack") then
+                    if not item.components.container:IsEmpty() then
+                        if item:HasTag("fridge") and item.components.workable then
+                            if targets.honeyed_fridge == nil then
+                                if hfood_fn(item, inst) then
+                                    targets.honeyed_fridge = item
+                                    targets.fridge = nil
+                                elseif food_fn(item, inst) then
+                                    targets.fridge = item
+                                end
+                            end
+                        elseif item:HasTag("chest") and item.components.workable then
+                            if targets.honeyed_chest == nil then
+                                if hfood_fn(item, inst) then
+                                    targets.honeyed_chest = item
+                                    targets.chest = nil
+                                elseif food_fn(item, inst) then
+                                    targets.chest = item
+                                end
+                            end
+                        elseif item:HasTag("backpack") then
                             if targets.honeyed_backpack == nil then
                                 targets.honeyed_backpack = hfood_fn(item, inst)
                                 if targets.honeyed_backpack then
@@ -273,6 +251,7 @@ if cfg.BEARGER_NOSTEAL > 0 or cfg.BEARGER_NOSMASH > 0 then
                                     targets.backpack = food_fn(item, inst)
                                 end
                             end
+                        end
                     end
                 elseif item.components.pickable then
                     if targets.pickable == nil and item.components.pickable.caninteractwith and
@@ -288,7 +267,7 @@ if cfg.BEARGER_NOSTEAL > 0 or cfg.BEARGER_NOSMASH > 0 then
         elseif targets.beebox and cfg.BEARGER_NOSTEAL < 2 then
             return BufferedAction(inst, targets.beebox, ACTIONS.HARVEST)
         elseif targets.honeyed_fridge and cfg.BEARGER_NOSTEAL < 1 then
-            return BufferedAction(inst, targets.honeyed_fridge, chest_action) --target and action depends on cfg.BEARGER_NOSMASH
+            return BufferedAction(inst, targets.honeyed_fridge, chest_action)
         elseif targets.honeyed_chest and cfg.BEARGER_NOSTEAL < 1 then
             return BufferedAction(inst, targets.honeyed_chest, chest_action)
         elseif targets.honeyed_backpack and cfg.BEARGER_NOSTEAL < 1 then
@@ -311,7 +290,7 @@ if cfg.BEARGER_NOSTEAL > 0 or cfg.BEARGER_NOSMASH > 0 then
     AddBrainPostInit("beargerbrain", function(self) --has 2 DoAction nodes for stealing, 1 for attacking beehives
         local node = self.bt.root.children
         if node[7] and node[7].name == "AttackHive" then --easy way to check node alignment
-            if cfg.BEARGER_NOSMASH > 2 then
+            if cfg.BEARGER_NOSMASH > 2 then --0:Default, 1:Containers, 2:CalmWalk, 3:Beehives
                 node[7].getactionfn = function(inst) end
             end
 
@@ -344,20 +323,15 @@ end
 ----------------- Cutless -----------------
 -------------------------------------------
 
-if cfg.CUTLESS_NOSTEAL > 0 or cfg.CUTLESS_PLAYER_NOSTEAL > 0 then --0:Default, 1:FromPlayers, 2:FromFollowers, 3:FromAll
+if cfg.CUTLESS_PLAYER_NOSTEAL > 0 or cfg.CUTLESS_NOSTEAL > 0 then --0:Default, 1:FromPlayers, 2:FromFollowers, 3:FromAll
     local function OnAttack(inst, attacker, target, oldfn)
-        local nosteal_level = inst:HasTag("player") and cfg.CUTLESS_PLAYER_NOSTEAL or cfg.CUTLESS_NOSTEAL
+        local nosteal_level = attacker:HasTag("player") and cfg.CUTLESS_PLAYER_NOSTEAL or cfg.CUTLESS_NOSTEAL
 
-        if nosteal_level > 2 or target:HasTag("player") then
-            return
-        elseif nosteal_level == 2 then
-            local f = target.components.follower
-            if f and f.leader and (f.leader.components.inventoryitem or f.leader:HasTag("player")) then
-                return
-            end
+        if not (nosteal_level > 2 or
+            (nosteal_level > 0 and target:HasTag("player")) or
+            (nosteal_level > 1 and is_player_follower(target))) then
+                oldfn(inst, attacker, target)
         end
-
-        oldfn(inst, attacker, target)
     end
 
     AddPrefabPostInit("cutless", function(inst)
@@ -376,15 +350,11 @@ end
 
 if cfg.FROG_NOSTEAL > 0 then --0:Default, 1:Players, 2:Followers, 3:All
     local function OnHitOther(inst, other, damage, oldfn)
-        if cfg.FROG_NOSTEAL > 2 or other:HasTag("player") then
-            return
-        elseif cfg.FROG_NOSTEAL == 2 then
-            local f = other.components.follower
-            if f and f.leader and (f.leader.components.inventoryitem or f.leader:HasTag("player")) then
-                return
-            end
+        if not (cfg.FROG_NOSTEAL > 2 or
+            (cfg.FROG_NOSTEAL > 0 and target:HasTag("player")) or
+            (cfg.FROG_NOSTEAL > 1 and is_player_follower(target))) then
+                oldfn(inst, other, damage)
         end
-        oldfn(inst, other, damage)
     end
 
     AddPrefabPostInit("frog", function(inst)
@@ -421,7 +391,19 @@ end
 -------------- Powder Monkey --------------
 -------------------------------------------
 
-if cfg.PMONKEY_NOSMASH > 0 cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GROUND > 0 then
+if cfg.PMONKEY_NOSTEAL_GROUND == 1 then --0:Default, 1:WearHat, 2:Misc, 3:Bananas
+    AddPrefabPostInit("powder_monkey", function(inst) --don't equip hats that we pick up
+        modprint("Upvalue hacking Prefabs.powder_monkey.fn -> OnPickup")
+        local OnPickup = UpvalueHacker.GetUpvalue(_G.Prefabs.powder_monkey.fn, "OnPickup")
+        if OnPickup then
+            inst:RemoveEventCallback("onpickupitem", OnPickup)
+        else
+            modprint("Prefabs.powder_monkey.fn -> OnPickup not found!")
+        end
+    end)
+end
+
+if cfg.PMONKEY_NOSMASH > 0 or cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GROUND > 1 then
 
     local function reversemastcheck(ent) --tidied up from powdermonkeybrain.lua
         return ent.components.mast and ent.components.mast.inverted and ent:HasTag("saillowered") and not ent:HasTag("sail_transitioning")
@@ -439,8 +421,8 @@ if cfg.PMONKEY_NOSMASH > 0 cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GROUND
                 return
         end
 
-        local bc = inst.components.crewmember and inst.components.crewmember.boat and
-            inst.components.crewmember.boat.components.boatcrew or nil
+        local bc = inst.components.crewmember
+        bc = bc and bc.boat and bc.boat.components.boatcrew
         if not bc then
             return
         end
@@ -449,30 +431,25 @@ if cfg.PMONKEY_NOSMASH > 0 cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GROUND
         local ents = TheSim:FindEntities(x, y, z, 10, DOTINKER_MUST_HAVE)
 
         for i, ent in ipairs(ents) do
-            if anchorcheck(target) then
+            if anchorcheck(ent) then
                 inst.tinkertarget = ent
                 bc:reserveinkertarget(ent)
-
-                return BufferedAction(inst, target, ACTIONS.LOWER_ANCHOR)
+                return BufferedAction(inst, ent, ACTIONS.LOWER_ANCHOR)
             elseif reversemastcheck(ent) then
                 inst.tinkertarget = ent
                 bc:reserveinkertarget(ent)
-
-                return BufferedAction(inst, target, ACTIONS.RAISE_SAIL)
+                return BufferedAction(inst, ent, ACTIONS.RAISE_SAIL)
             end
         end
     end
 
-    local function pmonkey_targetfn(inst, guy) --helper function
-        if not guy.components.inventory or guy:HasTag("monkey") or not inst.components.combat:CanTarget(guy) or
-            (cfg.PMONKEY_NOSTEAL > 0 and guy:HasTag("player")) then --0:Default, 1:Players, 2:Followers, 3:All
+    local function pmonkey_targetfn(inst, guy) --who powder monkeys can target for theft
+        if not guy.components.inventory or guy.components.inventory:NumItems() == 0 or
+            guy:HasTag("monkey") or not inst.components.combat:CanTarget(guy) or
+            (cfg.PMONKEY_NOSTEAL > 0 and guy:HasTag("player")) or --0:Default, 1:Players, 2:Followers, 3:All
+            (cfg.PMONKEY_NOSTEAL > 1 and is_player_follower(guy)) then
                 return
-        elseif cfg.PMONKEY_NOSTEAL > 1 then
-            local f = guy.components.follower
-            if f and f.leader and (f.leader.components.inventoryitem or f.leader:HasTag("player")) then
-                return
-            end
-        end --we wouldn't be here if cfg.PMONKEY_NOSTEAL > 2
+        end --this fn isn't called when cfg.PMONKEY_NOSTEAL > 2
 
         local target_ok
         for k, v in pairs(guy.components.inventory.itemslots) do
@@ -501,12 +478,13 @@ if cfg.PMONKEY_NOSMASH > 0 cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GROUND
     local CHEST_MUST_HAVE = {"chest"}
 
     local function ShouldSteal(inst) --limit targets based on config, streamline function
-        if inst.sg:HasStateTag("busy") or inst.components.timer and inst.components.timer:TimerExists("hit") then
-            return
+        if inst.sg:HasStateTag("busy") or inst.components.timer and
+            inst.components.timer:TimerExists("hit") then
+                return
         end
 
         inst.nothingtosteal = nil
-        inst.itemtosteal = nil --not used elsewhere, but set nil just in case
+        inst.itemtosteal = nil
 
         if not inst.components.inventory or inst.components.inventory:IsFull() or
             inst.components.combat.target and not inst.components.combat:InCooldown() then
@@ -517,24 +495,26 @@ if cfg.PMONKEY_NOSMASH > 0 cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GROUND
         local bc = crewboat and crewboat.components.boatcrew
         local instplatform = inst:GetCurrentPlatform()
 
-        if not (bc and bc.target) and instplatform and instplatform == crewboat then
+        if not (bc and bc.target) and instplatform and instplatform == crewboat then --on own boat and no boat target
             return
         end
 
         local x, y, z = inst.Transform:GetWorldPosition()
-        local ents = TheSim:FindEntities(x, y, z, 15, ITEM_MUST, ITEM_MUSTNOT)
 
-        for i, ent in ipairs(ents) do
-            local inv_item = ent.components.inventoryitem
-            if inv_item and inv_item.canbepickedup and inv_item.cangoincontainer and
-                not ent.components.sentientaxe and not inv_item:IsHeld() and not ent:IsOnWater() then
-                    if ent.prefab == "cave_banana" or ent.prefab == "cave_banana_cooked" then
-                        inst.itemtosteal = ent
-                        return BufferedAction(inst, ent, ACTIONS.PICKUP) --steal banana
-                    elseif cfg.PMONKEY_NOSTEAL_GROUND == 0 and --0:Default, 1:Misc, 2:Bananas
-                        inst.itemtosteal == nil then
-                            inst.itemtosteal = ent --steal this if no banana
-                    end
+        if cfg.PMONKEY_NOSTEAL_GROUND < 3 then --0:Default, 1:WearHat, 2:Misc, 3:Bananas
+            local ents = TheSim:FindEntities(x, y, z, 15, ITEM_MUST, ITEM_MUSTNOT)
+            for i, ent in ipairs(ents) do
+                local inv_item = ent.components.inventoryitem
+                if inv_item and inv_item.canbepickedup and inv_item.cangoincontainer and
+                    not ent.components.sentientaxe and not inv_item:IsHeld() and not ent:IsOnWater() then
+                        if ent.prefab == "cave_banana" or ent.prefab == "cave_banana_cooked" then
+                            inst.itemtosteal = ent
+                            return BufferedAction(inst, ent, ACTIONS.PICKUP) --steal banana
+                        elseif cfg.PMONKEY_NOSTEAL_GROUND < 2 and
+                            inst.itemtosteal == nil then
+                                inst.itemtosteal = ent --steal this if no banana
+                        end
+                end
             end
         end
 
@@ -553,12 +533,16 @@ if cfg.PMONKEY_NOSMASH > 0 cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GROUND
         end
 
         if cfg.PMONKEY_NOSTEAL < 3 then --0:Default, 1:Players, 2:Followers, 3:All
-            local queen = TheWorld.components.piratespawner and TheWorld.components.piratespawner.queen
-            queen = queen and queen.components.timer and queen.components.timer:TimerExists("right_of_passage")
+            if inst.components.combat.target then
+                return --don't set nothingtosteal
+            end
 
-            if not queen and not inst.components.combat.target then
-                local target = FindEntity(inst, 10, function(guy) pmonkey_targetfn(inst, guy) end, RETARGET_MUST_TAGS, RETARGET_CANT_TAGS, RETARGET_ONEOF_TAGS)
+            local q = _G.TheWorld.components.piratespawner
+            q = q and q.queen and q.queen.components.timer
+            q = q and q:TimerExists("right_of_passage")
 
+            if not q then
+                local target = _G.FindEntity(inst, 10, function(guy) return pmonkey_targetfn(inst, guy) end, RETARGET_MUST_TAGS, RETARGET_CANT_TAGS, RETARGET_ONEOF_TAGS)
                 if target then
                     return BufferedAction(inst, target, ACTIONS.STEAL)
                 end
@@ -579,8 +563,8 @@ if cfg.PMONKEY_NOSMASH > 0 cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GROUND
             end
         end
 
-        if cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GROUND > 0 or cfg.PMONKEY_NOSMASH > 1 then
-            local node = root.children[15]
+        if cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GROUND > 1 or cfg.PMONKEY_NOSMASH > 1 then
+            local node = root.children[14]
             if node and node.children and node.name == "ChattyNode" then
                 node = node.children[1]
             end
@@ -593,7 +577,7 @@ if cfg.PMONKEY_NOSMASH > 0 cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GROUND
     end
 
     AddBrainPostInit("powdermonkeybrain", function(self)
-        --pmonkey_surgery(self.bt.root)
+        pmonkey_surgery(self.bt.root)
     end)
 end
 
@@ -601,14 +585,14 @@ end
 ------------- Slurtle/Snurtle -------------
 -------------------------------------------
 
-if cfg.SLURTLE_NOSTEAL > 0 then --0:Default, 1:Containers, 2:Players
+if cfg.SLURTLE_NOSTEAL > 0 then
 
     local SEE_FOOD_DIST = 13 --defaults from slurtlebrain.lua and slurtlesnailbrain.lua
     local STEALFOOD_CANT_TAGS = {"playerghost", "fire", "burnt", "INLIMBO", "outofreach"}
     local STEALFOOD_ONEOF_TAGS = {"player"} --removed "_container" since we wouldn't be here otherwise
 
     local function StealFoodAction(inst) --limit targets based on config
-        if cfg.SLURTLE_NOSTEAL > 1 or inst.sg:HasStateTag("busy") then
+        if cfg.SLURTLE_NOSTEAL > 1 or inst.sg:HasStateTag("busy") then --0:Default, 1:Containers, 2:Players
             return
         end
 

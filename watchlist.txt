@@ -6,6 +6,7 @@ BEES = Calm Down, Bees!
 BRCH = Sustainable Birchnuts
 COMP = Companion Configurator
 DSLR = Display Light Radius
+FMBL = Don't Fumble
 GHST = Ghost Fly Over Abyss
 ICEF = Ice Flingomatic Watering
 LEAF = Leaf Jerky
@@ -16,15 +17,21 @@ SPDR = Sturdier Spider Den Decorations
 
 ================ Scripts ================
 
+brains/beargerbrain.lua --------- FMBL
 brains/bunnymanbrain.lua -------- COMP
 brains/mermbrain.lua ------------ COMP
 brains/mermguardbrain.lua ------- COMP
+brains/monkeybrain.lua ---------- FMBL
 brains/pigbrain.lua ------------- COMP
+brains/powdermonkeybrain.lua ---- FMBL
 brains/rockybrain.lua ----------- COMP
+brains/slurtlebrain.lua --------- FMBL
+brains/slurtlesnailbrain.lua ---- FMBL
 brains/smallbirdbrain.lua ------- COMP
 brains/spider_waterbrain.lua ---- COMP
 brains/spiderbrain.lua ---------- COMP
 
+components/drownable.lua -------- FMBL
 components/farming_manager.lua -- ICEF
 components/firedetector.lua ----- ICEF
 components/follower.lua --------- COMP
@@ -32,6 +39,7 @@ components/freezable.lua -------- COMP
 components/teleporter.lua ------- COMP
 
 prefabs/acorn.lua --------------- BRCH
+prefabs/bearger.lua ------------- FMBL
 prefabs/bunnyman.lua ------------ COMP / LOOT
 prefabs/chester.lua ------------- COMP
 prefabs/deciduoustrees.lua ------ BRCH
@@ -47,15 +55,19 @@ prefabs/mushroom_farm.lua ------- MUSH
 prefabs/mushtree_moonspore.lua -- MUSH
 prefabs/mushtree_spores.lua ----- MUSH
 prefabs/pigman.lua -------------- COMP / LOOT
+prefabs/player_common.lua ------- FMBL
 prefabs/polly_rogers.lua -------- COMP
+prefabs/powdermonkey.lua -------- FMBL
 prefabs/rocky.lua --------------- COMP
+prefabs/slurper.lua ------------- FMBL
 prefabs/smallbird.lua ----------- COMP
 prefabs/spider.lua -------------- COMP / SPDR
 prefabs/spiderden.lua ----------- SPDR
 prefabs/waterprojectiles.lua ---- ICEF
 
 preparedfoods.lua --------------- LEAF
-  (leafloaf, leafymeatburger, leafymeatsouffle, meatysalad)
 
 stategraphs/SGmoonspore.lua ----- MUSH
+stategraphs/SGmoose.lua --------- FMBL
 stategraphs/SGlureplant.lua ----- LEAF
+stategraphs/SGslurper.lua ------- FMBL

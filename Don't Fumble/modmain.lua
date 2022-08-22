@@ -22,6 +22,8 @@ local function modassert(v, s)
     return v
 end
 
+local empty_fn = function() end
+
 local function is_player_follower(inst)
     local f = inst.components.follower
     return f and f.leader and (f.leader.components.inventoryitem or f.leader:HasTag("player"))
@@ -31,30 +33,35 @@ end
 ---------------- Settings -----------------
 -------------------------------------------
 
-local cfg = --SGslurper (hat, compan)
+local cfg =
 {
-    ALL_NOFUMBLE = 0, --0:Default, 1:stronggrip
-    BEARGER_NOFUMBLE = 0, --0:Default, 1:NoFumble
-    BEARGER_NOSMASH = 0, --0:Default, 1:Containers(empty), 2:CalmWalk, 3:Beehives
-    BEARGER_NOSTEAL = 0, --0:Default, 1:Containers, 2:Structures, 3:Pickables
-    CUTLESS_NOSTEAL = 0, --0:Default, 1:FromPlayers, 2:FromFollowers, 3:FromAll
-    CUTLESS_PLAYER_NOSTEAL = 0, --0:Default, 1:FromPlayers, 2:FromFollowers, 3:FromAll
-    FROG_NOSTEAL = 0, --0:Default, 1:Players, 2:Followers, 3:All(lureplant, catcoon)
-    MOOSE_NOFUMBLE = 0, --0:Default, 1:NoFumble
-    PMONKEY_NOSMASH = 2, --0:Default, 1:Mast(sail), 2:NoEmptyChest, 3:NoTinker(malb, anchor)
-    PMONKEY_NOSTEAL = 0, --0:Default, 1:Players, 2:Followers, 3:All
-    PMONKEY_NOSTEAL_GROUND = 2, --0:Default, 1:WearHat(still steal), 2:Misc, 3:Bananas(will pick)
-    SLURTLE_NOSTEAL = 0, --0:Default, 1:Containers(chester, unworn pack), 2:Players
-    SPLUMONKEY_NOCHEST = 0, --0:Default, 1:Containers(hutch)
-    SPLUMONKEY_NOSTEAL = 0, --0:Default, 1:Misc(drops, targeted), 2:Hats, 3:Pickables, 4:Food
-    WET_NOFUMBLE = 0, --0:Default, 1:Tool, 2:Drown(stronggrip active item)
+    ALL_NOFUMBLE = GetModConfigData("all_nofumble"), --0:Default, 1:stronggrip
+    WET_NOFUMBLE = GetModConfigData("wet_nofumble"), --0:Default, 1:Tools, 2:Drown
+    CUTLESS_NOSTEAL = GetModConfigData("cutless_nosteal"), --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
+    CUTLESS_PLAYER = GetModConfigData("cutless_player"), --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
+
+    MOOSE_NOFUMBLE = GetModConfigData("moose_nofumble"), --0:Default, 1:NoFumble
+
+    BEARGER_NOFUMBLE = GetModConfigData("bearger_nofumble"), --0:Default, 1:NoFumble
+    BEARGER_NOSMASH = GetModConfigData("bearger_nosmash"), --0:Default, 1:Containers, 2:Trampling, 3:Beehives
+    BEARGER_NOSTEAL = GetModConfigData("bearger_nosteal"), --0:Default, 1:Containers, 2:Structures, 3:Pickables
+
+    FROG_NOSTEAL = GetModConfigData("frog_nosteal"), --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
+
+    PMONKEY_NOSMASH = GetModConfigData("pmonkey_nosmash"), --0:Default, 1:Mast, 2:NoEmptyChest, 3:NoTinker
+    PMONKEY_NOSTEAL = GetModConfigData("pmonkey_nosteal"), --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
+    PMONKEY_NOSTEAL_GROUND = GetModConfigData("pmonkey_nosteal_ground"), --0:Default, 1:NoWearHat, 2:Misc, 3:Bananas
+
+    SLURPER_NOSTEAL = GetModConfigData("slurper_nosteal"), --0:Default, 1:Unequip, 2:Protect
+
+    SLURTLE_NOSTEAL = GetModConfigData("slurtle_nosteal"), --0:Default, 1:Containers, 2:Players
+
+    SPLUMONKEY_NOCHEST = GetModConfigData("splumonkey_nochest"), --0:Default, 1:Containers
+    SPLUMONKEY_NOSTEAL = GetModConfigData("splumonkey_nosteal"), --0:Default, 1:Misc, 2:Hats, 3:Pickables, 4:Food
 }
 
---Watch: brains/beargerbrain.lua, monkeybrain.lua, powdermonkeybrain.lua, slurtlebrain.lua, slurtlesnailbrain.lua
---  components/drownable.lua; prefabs/bearger.lua, player_common.lua, powdermonkey.lua; stategraph/SGmoose.lua
-
 -------------------------------------------
------------------ Players -----------------
+----------------- General -----------------
 -------------------------------------------
 
 if cfg.ALL_NOFUMBLE > 0 then
@@ -82,7 +89,7 @@ if cfg.WET_NOFUMBLE > 0 then
             local name, val = _G.debug.getupvalue(fn, DWT_INDEX)
             if name and name == "DropWetTool" then
                 inst:RemoveEventCallback("working", val) --remove working listener for DropWetTool
-                _G.debug.setupvalue(fn, DWT_INDEX, function(inst, data) end) --replace with empty function in OnAttackOther
+                _G.debug.setupvalue(fn, DWT_INDEX, empty_fn) --replace with empty function in OnAttackOther
                 return
             end
         end
@@ -110,9 +117,50 @@ if cfg.WET_NOFUMBLE > 0 then
 
         if cfg.WET_NOFUMBLE > 1 and inst.components.drownable then
             local d = inst.components.drownable
-            d.shoulddropitemsfn = function(inst) return false end --don't drop half of items
+            d.shoulddropitemsfn = empty_fn --don't drop half of items
             d.OnFallInOcean = OnFallInOcean --don't drop hand equipment or active item
         end
+    end)
+end
+
+if cfg.CUTLESS_NOSTEAL > 0 or cfg.CUTLESS_PLAYER > 0 then --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
+    local function OnAttack(inst, attacker, target, oldfn)
+        local nosteal_level = attacker:HasTag("player") and cfg.CUTLESS_PLAYER or cfg.CUTLESS_NOSTEAL
+
+        if not (nosteal_level > 2 or
+            (nosteal_level > 0 and target:HasTag("player")) or
+            (nosteal_level > 1 and is_player_follower(target))) then
+                oldfn(inst, attacker, target)
+        end
+    end
+
+    AddPrefabPostInit("cutless", function(inst)
+        local oldattackfn = inst.components.weapon.onattack
+        if oldattackfn then
+            inst.components.weapon.onattack = function(inst, attacker, target)
+                OnAttack(inst, attacker, target, oldattackfn)
+            end
+        end
+    end)
+end
+
+-------------------------------------------
+--------------- Moose/Goose ---------------
+-------------------------------------------
+
+if cfg.MOOSE_NOFUMBLE > 0 then
+    local function no_disarm(self)
+        for _,v in ipairs(self.states.disarm.timeline) do
+            if v.time == 15*_G.FRAMES then --disarm fn located here
+                v.fn = empty_fn
+                return
+            end
+        end
+        modprint("Failed to find moose/goose disarm fn in SGmoose!")
+    end
+
+    AddStategraphPostInit("moose", function(self)
+        no_disarm(self)
     end)
 end
 
@@ -148,7 +196,7 @@ if cfg.BEARGER_NOFUMBLE > 0 or cfg.BEARGER_NOSMASH > 1 then
             end
         end
 
-        if cfg.BEARGER_NOSMASH > 1 then --CalmWalk
+        if cfg.BEARGER_NOSMASH > 1 then --Trampling
             if my_OnDestroyOther == nil then
                 modprint("Upvalue hacking Prefabs.bearger.fn -> OnCollide -> OnDestroyOther")
                 local collide = UpvalueHacker.GetUpvalue(_G.Prefabs.bearger.fn, "OnCollide")
@@ -291,7 +339,7 @@ if cfg.BEARGER_NOSTEAL > 0 or cfg.BEARGER_NOSMASH > 0 then
         local node = self.bt.root.children
         if node[7] and node[7].name == "AttackHive" then --easy way to check node alignment
             if cfg.BEARGER_NOSMASH > 2 then --0:Default, 1:Containers, 2:CalmWalk, 3:Beehives
-                node[7].getactionfn = function(inst) end
+                node[7].getactionfn = empty_fn
             end
 
             if node[6] and node[6].name == "DoAction" then
@@ -320,35 +368,10 @@ if cfg.BEARGER_NOSTEAL > 0 or cfg.BEARGER_NOSMASH > 0 then
 end
 
 -------------------------------------------
------------------ Cutless -----------------
--------------------------------------------
-
-if cfg.CUTLESS_PLAYER_NOSTEAL > 0 or cfg.CUTLESS_NOSTEAL > 0 then --0:Default, 1:FromPlayers, 2:FromFollowers, 3:FromAll
-    local function OnAttack(inst, attacker, target, oldfn)
-        local nosteal_level = attacker:HasTag("player") and cfg.CUTLESS_PLAYER_NOSTEAL or cfg.CUTLESS_NOSTEAL
-
-        if not (nosteal_level > 2 or
-            (nosteal_level > 0 and target:HasTag("player")) or
-            (nosteal_level > 1 and is_player_follower(target))) then
-                oldfn(inst, attacker, target)
-        end
-    end
-
-    AddPrefabPostInit("cutless", function(inst)
-        local oldattackfn = inst.components.weapon.onattack
-        if oldattackfn then
-            inst.components.weapon.onattack = function(inst, attacker, target)
-                OnAttack(inst, attacker, target, oldattackfn)
-            end
-        end
-    end)
-end
-
--------------------------------------------
 ------------------ Frogs ------------------
 -------------------------------------------
 
-if cfg.FROG_NOSTEAL > 0 then --0:Default, 1:Players, 2:Followers, 3:All
+if cfg.FROG_NOSTEAL > 0 then --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
     local function OnHitOther(inst, other, damage, oldfn)
         if not (cfg.FROG_NOSTEAL > 2 or
             (cfg.FROG_NOSTEAL > 0 and target:HasTag("player")) or
@@ -368,30 +391,10 @@ if cfg.FROG_NOSTEAL > 0 then --0:Default, 1:Players, 2:Followers, 3:All
 end
 
 -------------------------------------------
---------------- Moose/Goose ---------------
--------------------------------------------
-
-if cfg.MOOSE_NOFUMBLE > 0 then
-    local function no_disarm(self)
-        for _,v in ipairs(self.states.disarm.timeline) do
-            if v.time == 15*_G.FRAMES then --disarm fn located here
-                v.fn = function(inst) end
-                return
-            end
-        end
-        modprint("Failed to find moose/goose disarm fn in SGmoose!")
-    end
-
-    AddStategraphPostInit("moose", function(self)
-        no_disarm(self)
-    end)
-end
-
--------------------------------------------
 -------------- Powder Monkey --------------
 -------------------------------------------
 
-if cfg.PMONKEY_NOSTEAL_GROUND == 1 then --0:Default, 1:WearHat, 2:Misc, 3:Bananas
+if cfg.PMONKEY_NOSTEAL_GROUND == 1 then --0:Default, 1:NoWearHat, 2:Misc, 3:Bananas
     AddPrefabPostInit("powder_monkey", function(inst) --don't equip hats that we pick up
         modprint("Upvalue hacking Prefabs.powder_monkey.fn -> OnPickup")
         local OnPickup = UpvalueHacker.GetUpvalue(_G.Prefabs.powder_monkey.fn, "OnPickup")
@@ -446,7 +449,7 @@ if cfg.PMONKEY_NOSMASH > 0 or cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GRO
     local function pmonkey_targetfn(inst, guy) --who powder monkeys can target for theft
         if not guy.components.inventory or guy.components.inventory:NumItems() == 0 or
             guy:HasTag("monkey") or not inst.components.combat:CanTarget(guy) or
-            (cfg.PMONKEY_NOSTEAL > 0 and guy:HasTag("player")) or --0:Default, 1:Players, 2:Followers, 3:All
+            (cfg.PMONKEY_NOSTEAL > 0 and guy:HasTag("player")) or --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
             (cfg.PMONKEY_NOSTEAL > 1 and is_player_follower(guy)) then
                 return
         end --this fn isn't called when cfg.PMONKEY_NOSTEAL > 2
@@ -501,7 +504,7 @@ if cfg.PMONKEY_NOSMASH > 0 or cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GRO
 
         local x, y, z = inst.Transform:GetWorldPosition()
 
-        if cfg.PMONKEY_NOSTEAL_GROUND < 3 then --0:Default, 1:WearHat, 2:Misc, 3:Bananas
+        if cfg.PMONKEY_NOSTEAL_GROUND < 3 then --0:Default, 1:NoWearHat, 2:Misc, 3:Bananas
             local ents = TheSim:FindEntities(x, y, z, 15, ITEM_MUST, ITEM_MUSTNOT)
             for i, ent in ipairs(ents) do
                 local inv_item = ent.components.inventoryitem
@@ -532,7 +535,7 @@ if cfg.PMONKEY_NOSMASH > 0 or cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GRO
             end
         end
 
-        if cfg.PMONKEY_NOSTEAL < 3 then --0:Default, 1:Players, 2:Followers, 3:All
+        if cfg.PMONKEY_NOSTEAL < 3 then --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
             if inst.components.combat.target then
                 return --don't set nothingtosteal
             end
@@ -578,6 +581,55 @@ if cfg.PMONKEY_NOSMASH > 0 or cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GRO
 
     AddBrainPostInit("powdermonkeybrain", function(self)
         pmonkey_surgery(self.bt.root)
+    end)
+end
+
+-------------------------------------------
+----------------- Slurper -----------------
+-------------------------------------------
+
+if cfg.SLURPER_NOSTEAL == 1 then --0:Default, 1:Unequip, 2:Protect
+    local function equip_fn(inst)
+        local target = inst.components.combat.target
+        if target and target:IsValid() and inst:IsNear(target, 2) and
+            inst.HatTest and inst:HatTest(target) then
+                local oldhat = target.components.inventory:GetEquippedItem(EQUIPSLOTS.HEAD)
+                if oldhat then
+                    if target:HasTag("player") then
+                        target.components.inventory:GiveItem(oldhat) --give or drop
+                    else --don't get stuck in follower inventory
+                        target.components.inventory:DropItem(oldhat)
+                    end
+                end
+                target.components.inventory:Equip(inst)
+        end
+    end
+
+    local function no_drop_hat(self)
+        for _,v in ipairs(self.states.headslurp.timeline) do
+            if v.time == 24*_G.FRAMES then --equip fn located here
+                v.fn = equip_fn
+                return
+            end
+        end
+        modprint("Failed to find slurper equip fn in SGslurper!")
+    end
+
+    AddStategraphPostInit("slurper", function(self)
+        no_drop_hat(self)
+    end)
+elseif cfg.SLURPER_NOSTEAL > 1 then
+    local function CanHatTarget(inst, target) --fail if existing hat
+        if target and target.components.inventory and
+            (target.components.inventory.isopen or
+            target:HasTag("pig") or target:HasTag("manrabbit") or
+            (inst._loading and target:HasTag("player"))) then
+                return not target.components.inventory:GetEquippedItem(EQUIPSLOTS.HEAD)
+        end
+    end
+
+    AddPrefabPostInit("slurper", function(inst)
+        inst.HatTest = CanHatTarget
     end)
 end
 
@@ -834,7 +886,7 @@ if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_NOCHEST > 0 then
                 if cfg.SPLUMONKEY_NOCHEST == 0 or cfg.SPLUMONKEY_NOSTEAL == 0 then
                     node.children[2].getactionfn = AnnoyLeader
                 else --no looting chests or stealing misc items
-                    node.children[2].getactionfn = function(inst) end
+                    node.children[2].getactionfn = empty_fn
                 end
         else
             modprint("Splumonkey brain surgery #2 failed!")

@@ -2,7 +2,7 @@
 name = "Sustainable Birchnuts"
 description = "Add an extra birchnut drop at a configurable chance to mature trees in all seasons. Also allow planting of rotten birchnuts."
 author = "Bumber"
-version = "1.2"
+version = "1.3"
 forumthread = ""
 
 icon_atlas = "modicon.xml"

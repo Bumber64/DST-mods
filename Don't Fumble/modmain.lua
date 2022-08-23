@@ -15,13 +15,6 @@ local function modprint(s)
     print("[Don't Fumble] "..s)
 end
 
-local function modassert(v, s)
-    if not v then
-        _G.error("[Don't Fumble] "..s)
-    end
-    return v
-end
-
 local empty_fn = function() end
 
 local function is_player_follower(inst)

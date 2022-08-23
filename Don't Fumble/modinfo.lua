@@ -13,8 +13,6 @@ dst_compatible = true
 all_clients_require_mod = false
 client_only_mod = false
 
-priority = -1
-
 local divider = {name = "", label = "", options = {{description = "", data = 0}}, default = 0}
 
 configuration_options =

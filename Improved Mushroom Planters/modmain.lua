@@ -16,13 +16,6 @@ local function modprint(s)
     print("[Improved Mushroom Planters] "..s)
 end
 
-local function modassert(v, s)
-    if not v then
-        _G.error("[Improved Mushroom Planters] "..s)
-    end
-    return v
-end
-
 -------------------------------------------
 ---------------- Settings -----------------
 -------------------------------------------
@@ -65,14 +58,21 @@ local my_StartGrowing
 
 local function find_mfarm_upvalues(inst)
     if my_spore_to_cap then
-        return
+        return true
     end
 
-    modassert(inst.components.trader.onaccept, "inst.components.trader.onaccept not defined for (".._G.tostring(inst)..")!")
+    if not inst.components.trader.onaccept then
+        modprint("inst.components.trader.onaccept not defined for (".._G.tostring(inst)..")!")
+        return false
+    end
 
     modprint("Upvalue hacking old \"onacceptitem\" for StartGrowing...")
     my_StartGrowing = UpvalueHacker.GetUpvalue(inst.components.trader.onaccept, "StartGrowing")
-    modassert(my_StartGrowing, "StartGrowing not found in old \"onacceptitem\"!")
+
+    if not my_StartGrowing then
+        modprint(my_StartGrowing, "StartGrowing not found in old \"onacceptitem\"!")
+        return false
+    end
 
     modprint("Upvalue hacking StartGrowing for \"levels\"...")
     my_levels = UpvalueHacker.GetUpvalue(my_StartGrowing, "levels")
@@ -103,6 +103,8 @@ local function find_mfarm_upvalues(inst)
             spore_moon = "moon_cap", --allow lunar spores to be planted
         }
     end
+
+    return true
 end
 
 -------------------------------------------
@@ -230,16 +232,18 @@ end
 -------------------------------------------
 
 AddPrefabPostInit("mushroom_farm", function(inst)
-    find_mfarm_upvalues(inst)
+    if find_mfarm_upvalues(inst) then
+        modprint("Replacing \"updatelevel\" in (".._G.tostring(inst)..")")
+        UpvalueHacker.SetUpvalue(inst.components.trader.onaccept, updatelevel, "updatelevel")
 
-    modprint("Replacing \"updatelevel\" in (".._G.tostring(inst)..")")
-    UpvalueHacker.SetUpvalue(inst.components.trader.onaccept, updatelevel, "updatelevel")
+        inst.components.harvestable:SetOnHarvestFn(onharvest)
 
-    inst.components.harvestable:SetOnHarvestFn(onharvest)
-
-    inst.components.trader.deleteitemonaccept = false --handled in onacceptitem
-    inst.components.trader:SetAbleToAcceptTest(accepttest)
-    inst.components.trader.onaccept = onacceptitem
+        inst.components.trader.deleteitemonaccept = false --handled in onacceptitem
+        inst.components.trader:SetAbleToAcceptTest(accepttest)
+        inst.components.trader.onaccept = onacceptitem
+    else
+        _G.TheNet:SystemMessage("[Improved Mushroom Planters] Failed to modify Mushroom Planter!")
+    end
 end)
 
 -------------------------------------------
@@ -252,22 +256,37 @@ local my_stop_testing
 
 local function find_spore_upvalues(inst)
     if my_stop_testing then
-        return
+        return true
     end
 
     modprint("Upvalue hacking Prefabs.spore_moon.fn for \"checkforcrowding\"...")
     my_checkforcrowding = UpvalueHacker.GetUpvalue(_G.Prefabs.spore_moon.fn, "checkforcrowding")
-    modassert(my_checkforcrowding, "\"checkforcrowding\" not found in Prefabs.spore_moon.fn!")
 
-    modassert(inst.OnEntityWake, "inst.OnEntityWake not defined for (".._G.tostring(inst)..")!")
+    if not my_checkforcrowding then
+        modprint("\"checkforcrowding\" not found in Prefabs.spore_moon.fn!")
+        return false
+    elseif not inst.OnEntityWake then
+        modprint("inst.OnEntityWake not defined for (".._G.tostring(inst)..")!")
+        return false
+    end
 
     modprint("Upvalue hacking \"spore_entity_wake\" for \"schedule_testing\"...")
     my_schedule_testing = UpvalueHacker.GetUpvalue(inst.OnEntityWake, "schedule_testing")
-    modassert(my_schedule_testing, "\"schedule_testing\" not found in \"spore_entity_wake\"!")
+
+    if not my_schedule_testing then
+        modprint("\"schedule_testing\" not found in \"spore_entity_wake\"!")
+        return false
+    end
 
     modprint("Upvalue hacking \"schedule_testing\" for \"stop_testing\"...")
     my_stop_testing = UpvalueHacker.GetUpvalue(my_schedule_testing, "stop_testing")
-    modassert(my_stop_testing, "\"stop_testing\" not found in \"schedule_testing\"!")
+
+    if not my_stop_testing then
+        modprint("\"stop_testing\" not found in \"schedule_testing\"!")
+        return false
+    end
+
+    return true
 end
 
 -------------------------------------------
@@ -354,32 +373,34 @@ end
 -------------------------------------------
 
 AddPrefabPostInit("spore_moon", function(inst)
-    find_spore_upvalues(inst)
-
     --Need to support existing inventory spores even if MOON_SPORE is false
-    inst:AddTag("show_spoilage")
-    inst:AddComponent("tradable")
-    inst:AddComponent("inventoryitem")
-    inst.components.inventoryitem.atlasname = "images/inventoryimages/spore_moon.xml"
-    inst.components.inventoryitem.canbepickedup = false
+    if find_spore_upvalues(inst) then
+        inst:AddTag("show_spoilage")
+        inst:AddComponent("tradable")
+        inst:AddComponent("inventoryitem")
+        inst.components.inventoryitem.atlasname = "images/inventoryimages/spore_moon.xml"
+        inst.components.inventoryitem.canbepickedup = false
 
-    if MOON_SPORE then
-        inst.components.workable:SetOnFinishCallback(onworked) --collect instead of explode
-    end
-
-    if AUTOSTACK then --prevent autostacking on drop
-        inst:AddComponent("locomotor")
-        inst.components.locomotor:SetTriggersCreep(false)
-    end
-
-    inst.components.perishable:SetOnPerishFn(depleted) --drop from inventory and explode
-
-    inst:ListenForEvent("onputininventory", onpickup) --stop proximity testing
-    inst:ListenForEvent("ondropped", ondropped) --spread out stack and resume testing
-
-    inst:DoTaskInTime(1, function(inst)
-        if inst:IsInLimbo() then
-            my_stop_testing(inst) --undo original prefab's testing if loaded in inventory
+        if MOON_SPORE then
+            inst.components.workable:SetOnFinishCallback(onworked) --collect instead of explode
         end
-    end)
+
+        if AUTOSTACK then --prevent autostacking on drop
+            inst:AddComponent("locomotor")
+            inst.components.locomotor:SetTriggersCreep(false)
+        end
+
+        inst.components.perishable:SetOnPerishFn(depleted) --drop from inventory and explode
+
+        inst:ListenForEvent("onputininventory", onpickup) --stop proximity testing
+        inst:ListenForEvent("ondropped", ondropped) --spread out stack and resume testing
+
+        inst:DoTaskInTime(1, function(inst)
+            if inst:IsInLimbo() then
+                my_stop_testing(inst) --undo original prefab's testing if loaded in inventory
+            end
+        end)
+    else
+        _G.TheNet:SystemMessage("[Improved Mushroom Planters] Failed to modify Lunar Spore!")
+    end
 end)

@@ -9,14 +9,6 @@ local UpvalueHacker = require("tools/upvaluehacker") --Rezecib's upvalue hacker
 local function modprint(s)
     print("[Ice Flingomatic Watering] "..s)
 end
-
-local function modassert(v, s)
-    if not v then
-        _G.error("[Ice Flingomatic Watering] "..s)
-    end
-    return v
-end
-
 local function insertifnotexist(t, s)
     if table.contains(t, s) then
         return false
@@ -47,12 +39,16 @@ local my_RegisterDetectedItem
 
 local function find_fdetector_upvalues(self)
     if my_RegisterDetectedItem then
-        return
+        return true
     end
 
     modprint("Upvalue hacking Activate for old LookForFiresAndFirestarters...")
     local old_LFFAF = UpvalueHacker.GetUpvalue(self.Activate, "LookForFiresAndFirestarters")
-    modassert(old_LFFAF, "Old LookForFiresAndFirestarters not found in Activate!")
+
+    if not old_LFFAF then
+        modprint("Old LookForFiresAndFirestarters not found in Activate!")
+        return false
+    end
 
     modprint("Upvalue hacking old LookForFiresAndFirestarters for NOTAGS...")
     my_NOTAGS = UpvalueHacker.GetUpvalue(old_LFFAF, "NOTAGS")
@@ -84,12 +80,13 @@ local function find_fdetector_upvalues(self)
     if not my_RegisterDetectedItem then
         modprint("RegisterDetectedItem not found in old LookForFiresAndFirestarters! Using default.")
         my_RegisterDetectedItem = function(inst, self, target)
-            self.detectedItems[target] = inst:DoTaskInTime(2,
-                function(inst, self, target)
-                    self.detectedItems[target] = nil
-                end, self, target)
+            self.detectedItems[target] = inst:DoTaskInTime(2, function(inst, self, target)
+                self.detectedItems[target] = nil
+            end, self, target)
         end
     end
+
+    return true
 end
 
 -------------------------------------------
@@ -125,14 +122,24 @@ if WATER_PERCENT > 0.0 and not SMART_TARGET_CROPS then --need to acquire _moistu
             local _moisturegrid
 
             function self:GetSoilMoistureAtPoint(x, y, z)
-                if not _moisturegrid then
+                if _moisturegrid == nil then
                     modprint("_moisturegrid undefined. Upvalue hacking farming_manager.OnSave for _moisturegrid...")
                     _moisturegrid = UpvalueHacker.GetUpvalue(self.OnSave, "_moisturegrid")
-                    modassert(_moisturegrid, "_moisturegrid still undefined!")
-                    modprint("Defined _moisturegrid.")
+
+                    if _moisturegrid then
+                        modprint("Defined _moisturegrid.")
+                    else
+                        _moisturegrid = false
+                        modprint("_moisturegrid not found in farming_manager.OnSave!")
+                        _G.TheNet:SystemMessage("[Ice Flingomatic Watering] Failed to find \"_moisturegrid\" in farming_manager component!")
+                    end
                 end
 
-                return _moisturegrid:GetDataAtPoint(_G.TheWorld.Map:GetTileCoordsAtPoint(x, y, z)) or _G.TheWorld.state.wetness
+                if _moisturegrid then
+                    return _moisturegrid:GetDataAtPoint(_G.TheWorld.Map:GetTileCoordsAtPoint(x, y, z)) or _G.TheWorld.state.wetness
+                else
+                    return 100.0 --error, never water
+                end
             end
             modprint("Defined GetSoilMoistureAtPoint.")
         end
@@ -230,9 +237,12 @@ end
 -------------------------------------------
 
 AddComponentPostInit("firedetector", function(self)
-    find_fdetector_upvalues(self)
-    modprint("Replacing LookForFiresAndFirestarters in firedetector component.")
-    UpvalueHacker.SetUpvalue(self.Activate, LookForFiresAndFirestarters, "LookForFiresAndFirestarters")
+    if find_fdetector_upvalues(self) then
+        modprint("Replacing LookForFiresAndFirestarters in firedetector component.")
+        UpvalueHacker.SetUpvalue(self.Activate, LookForFiresAndFirestarters, "LookForFiresAndFirestarters")
+    else
+        _G.TheNet:SystemMessage("[Ice Flingomatic Watering] Failed to modify firedetector component!")
+    end
 end)
 
 AddPrefabPostInit("firesuppressor", function(inst)

@@ -30,6 +30,9 @@ https://steamcommunity.com/sharedfiles/filedetails/?id=2756964320
 ### Loot Drop Tweaks
 https://steamcommunity.com/sharedfiles/filedetails/?id=2692919328
 
+### Rechargeable Touch Stones
+https://steamcommunity.com/sharedfiles/filedetails/?id=2854593752
+
 ### Respawn Light
 https://steamcommunity.com/sharedfiles/filedetails/?id=2749440828
 

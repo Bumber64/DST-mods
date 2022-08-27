@@ -2,7 +2,7 @@
 name = "Rechargeable Touch Stones"
 description = "Recharge touch stones using life giving amulets or telltale hearts. Configurable."
 author = "Bumber"
-version = "1.0"
+version = "1.1"
 forumthread = ""
 
 icon_atlas = "modicon.xml"
@@ -22,8 +22,8 @@ configuration_options =
         options =
         {
             {description = "Life Giving Amulet", data = 0, hover = ""},
-            {description = "Telltale Heart (Penalty)", data = 1, hover = "Max health penalty applied upon recharging touch stone."},
-            {description = "Telltale Heart (No Penalty)", data = 2, hover = ""},
+            {description = "Heart (Penalty)", data = 1, hover = "Max health penalty applied upon recharging touch stone."},
+            {description = "Heart (No Penalty)", data = 2, hover = ""},
         },
         default = 0,
     },

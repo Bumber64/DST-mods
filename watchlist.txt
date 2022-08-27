@@ -12,6 +12,7 @@ ICEF = Ice Flingomatic Watering
 LEAF = Leaf Jerky
 LOOT = Loot Drop Tweaks
 MUSH = Improved Mushroom Planters
+RECH = Rechargeable Touch Stones
 RSLT = Respawn Light
 SPDR = Sturdier Spider Den Decorations
 

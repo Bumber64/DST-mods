@@ -533,7 +533,10 @@ if cfg.PIGMERMBUN_NOTRAP > 0 or cfg.PIGMERMBUN_LOYALTY > 0 or cfg.PIGMERMBUN_DEA
         end)
 
         AddBrainPostInit("mermbrain", function(self)
-            local node = self.bt.root.children[12]
+            local node = self.bt.root.children[13]
+            if node and node.children then
+                node = node.children[1]
+            end
             if node and node.name == "Follow" then
                 node.target = followleaderfn
             else
@@ -543,7 +546,7 @@ if cfg.PIGMERMBUN_NOTRAP > 0 or cfg.PIGMERMBUN_LOYALTY > 0 or cfg.PIGMERMBUN_DEA
         end)
 
         AddBrainPostInit("mermguardbrain", function(self)
-            local node = self.bt.root.children[8]
+            local node = self.bt.root.children[9]
             if node and node.children then
                 node = node.children[1]
             end

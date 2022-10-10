@@ -61,20 +61,32 @@ configuration_options =
 {
     divider,
     {
-        name = "FREENIGHTVISION_TOGGLEKEY",
+        name = "TOGGLEKEY",
         label = "Toggle Nightvision Key",
         hover = "Use this key to toggle nightvision on and off (or disable key binding.)",
         options = alpha_keys,
         default = ("n"):byte(),
     },
     {
-        name = "FREENIGHTVISION_GRUEALERT",
+        name = "GRUEALERT",
         label = "Darkness Alert",
         hover = "Alert the player when they can be attacked by darkness.",
         options =
         {
-            {description = "Off", data = false},
-            {description = "On", data = true},
+            {description = "Disabled", data = 0},
+            {description = "Warn Vulnerable", hover = "Don't alert while asleep, invincible, etc.", data = 1},
+            {description = "Always Warn", hover = "Always warn while in darkness, even if not currently vulnerable.", data = 2},
+        },
+        default = 0,
+    },
+    {
+        name = "GRUE_ALERT_NV_ONLY",
+        label = "Darkness Alert Requires Free Nightvision",
+        hover = "Only show darkness alert while free nightvision is active?",
+        options =
+        {
+            {description = "Yes", data = true},
+            {description = "No", hover = "Show alert even while free nightvision is off.", data = false},
         },
         default = true,
     },
@@ -89,6 +101,19 @@ configuration_options =
             {description = "Toggle Off", data = 1, hover = "Turn off but not back on."},
             {description = "Don't Toggle", data = 2, hover = "Ignore toggle key while moggles are equipped."},
             {description = "Auto Toggle Off", data = 3, hover = "Automaticaly turn off whenever moggles are equipped."},
+        },
+        default = 0,
+    },
+    {
+        name = "WX_ACTIVATE",
+        label = "Optoelectronic Circuit Behaviour",
+        hover = "How to handle free nightvision toggle when nightvision circuit is active.\nDoesn't toggle circuit itself.",
+        options =
+        {
+            {description = "Always Toggle", data = 0, hover = "Turn on/off with key."},
+            {description = "Toggle Off", data = 1, hover = "Turn off but not back on."},
+            {description = "Don't Toggle", data = 2, hover = "Ignore toggle key while circuit is active."},
+            {description = "Auto Toggle Off", data = 3, hover = "Automaticaly turn off whenever circuit activates."},
         },
         default = 0,
     },

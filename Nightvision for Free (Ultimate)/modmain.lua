@@ -1,17 +1,8 @@
 
 local _G = GLOBAL
 
-local ts = _G.tostring --DEBUG
-local function dprint(inst, s) --DEBUG
-    if inst.components.talker then
-        inst.components.talker:Say(ts(s))
-    end
-end
-
-local ToggleNightvisionKey = GetModConfigData("FREENIGHTVISION_TOGGLEKEY") --Keycode
-local FREENIGHTVISION_GRUEALERT = GetModConfigData("FREENIGHTVISION_GRUEALERT") --Boolean
-
 local MOGGLES_EQUIP = GetModConfigData("MOGGLES_EQUIP") --0=AlwaysToggle, 1=ToggleOff, 2=NoToggle, 3=AutoToggleOff
+local WX_ACTIVATE = GetModConfigData("WX_ACTIVATE") --0=AlwaysToggle, 1=ToggleOff, 2=NoToggle, 3=AutoToggleOff
 local AUTO_DARK = GetModConfigData("AUTO_DARK") --0=Disabled, 1=Night, 2=NightCaves, 3=Dark
 local AUTO_LIGHT = GetModConfigData("AUTO_LIGHT") --0=Disabled, 1=Day, 2=Light
 
@@ -19,154 +10,213 @@ local DUSK_IS_DAY = GetModConfigData("DUSK_IS_DAY") --Boolean
 local DAY_CC = GetModConfigData("DAY_CC") --Filename or false
 local NIGHT_CC = GetModConfigData("NIGHT_CC") --Filename or false
 
+local GRUE_ALERT = GetModConfigData("GRUE_ALERT") --0=Disabled, 1=WarnVulnerable, 2=AlwaysWarn
+local GRUE_ALERT_NV_ONLY = GetModConfigData("GRUE_ALERT_NV_ONLY") --Boolean
 local NV_ICON = GetModConfigData("NV_ICON") --Boolean
-
-_G.t = --DEBUG
-{
-    dark = 0,
-    light = 0,
-    phase = 0,
-    nv = 0,
-}
 
 ----------------------------------------
 ------------- Manual Toggle ------------
 ----------------------------------------
 
-local function in_game() --HasInputFocus is cleaner than checking active screen
-    return _G.TheWorld and _G.ThePlayer and _G.ThePlayer.HUD and not _G.ThePlayer.HUD:HasInputFocus()
+local function is_circuit_on(inst) --True if WX circuit exists and active
+    return inst._forced_nightvision and inst._forced_nightvision:value()
 end
 
-if ToggleNightvisionKey ~= 0 then --Manual toggle can be disabled
-    _G.TheInput:AddKeyUpHandler(ToggleNightvisionKey, function()
+local function set_nv(inst, enable) --Set nightvision, accounting for WX's circuit
+    if not enable == not inst._free_nightvision then
+        inst._free_nightvision = enable
+        if NV_ICON or GRUE_ALERT == 1 then
+            inst:PushEvent("nv_change")
+        end
+    else --Already in correct state
+        return
+    end
+
+    local pv = inst.components.playervision
+    if not pv then
+        return
+    elseif enable then
+        pv:ForceNightVision(true) --Does nothing if circuit active
+    elseif not is_circuit_on(inst) then
+        pv:ForceNightVision(false) --Turn off if circuit not active
+    end
+end
+
+if GetModConfigData("TOGGLEKEY") ~= 0 then --Manual toggle enabled
+    local function in_game()
+        return _G.TheWorld and _G.ThePlayer and _G.ThePlayer.HUD and not _G.ThePlayer.HUD:HasInputFocus()
+    end
+
+    _G.TheInput:AddKeyDownHandler(GetModConfigData("TOGGLEKEY"), function()
         if not in_game() then
             return
         end
 
-        local p = _G.ThePlayer --Temporarily set to player for brevity
-        p = not (p._forced_nightvision and p._forced_nightvision:value()) and
-            p.components.playervision --If WX's circuit is active then p = false, else p = playervision
+        local p = _G.ThePlayer
+        local mog_vis = p.components.playervision and p.components.playervision.nightvision
 
-        if not p or p.nightvision and not (MOGGLES_EQUIP == 0 or MOGGLES_EQUIP == 1 and p.forcenightvision) then
-            return --Restrict manual toggling based on MOGGLES_EQUIP and WX circuit
+        if MOGGLES_EQUIP > 1 and mog_vis or WX_ACTIVATE > 1 and is_circuit_on(p) then
+            return --Can't toggle right now
+        elseif p._free_nightvision then
+            set_nv(p, false)
+        elseif (MOGGLES_EQUIP == 0 or not mog_vis) and (WX_ACTIVATE == 0 or not is_circuit_on(p)) then
+            set_nv(p, true)
         end
-
-        p:ForceNightVision(not p.forcenightvision) --Toggle and push "nightvision" event
     end)
 end
-
 ----------------------------------------
 --------------- Grue Alert -------------
 ----------------------------------------
 
-local SpawnGrueAlert = require("prefabs/grue_alert")
+local grue_fns = {} --Functions for grue alerts
 
-local GrueAlertTask = nil
-local function GrueAlertFn(inst)
-    if inst.components.grue or --Free nightvision protects in singleplayer
-        inst._forced_nightvision and inst._forced_nightvision:value() then --Don't alert if WX's circuit active
-            return
+if GRUE_ALERT > 0 then
+    local SpawnGrueAlert = require("prefabs/grue_alert")
+    local GrueAlertTask --Periodic task for spawning alerts
+    local grue_protect = {} --Sources of grue protection
+
+    local function eval_grue_protect() --Alert if no protections remain
+        if #grue_protect > 0 or GRUE_ALERT_NV_ONLY and not _G.ThePlayer._free_nightvision then
+            if GrueAlertTask then
+                GrueAlertTask:Cancel()
+                GrueAlertTask = nil
+            end
+        else
+            if GrueAlertTask == nil then
+                GrueAlertTask = inst:DoPeriodicTask(0.25, SpawnGrueAlert)
+            end
+        end
     end
 
-    local pv = inst.components.playervision
-    if pv and (pv.forcenightvision and not pv.nightvision) then
-        SpawnGrueAlert(inst) --Alert when free nightvision active and moggles not equipped
+    grue_fns.ResetGrueAlert = function() --Reset alerts on character swap
+        grue_protect = {}
+        if GrueAlertTask then
+            GrueAlertTask:Cancel()
+            GrueAlertTask = nil
+        end
+    end
+
+    grue_fns.OnInvincible = function(inst, data)
+        if data.invincible then
+            grue_protect.invincible = true
+        else
+            grue_protect.invincible = nil
+        end
+        eval_grue_protect()
+    end
+
+    grue_fns.OnDeath = function()
+        grue_protect.dead = true
+        eval_grue_protect()
+    end
+
+    grue_fns.OnAlive = function()
+        grue_protect.dead = nil
+        eval_grue_protect()
+    end
+
+    grue_fns.OnEnterState = function(inst, data)
+        local state = data.statename
+        if state == "bedroll" or state == "tent" or state == "knockout" then
+            grue_protect.asleep = true
+        else
+            grue_protect.asleep = nil
+        end
+        eval_grue_protect()
+    end
+
+    grue_fns.OnNightvision = function(inst)
+        if inst._free_nightvision and inst.components.grue then
+            grue_protect.freenv = true --If grue then is solo caveless and free nv protects
+        else
+            grue_protect.freenv = nil
+        end
+
+        if is_circuit_on(inst) then
+            grue_protect.circuit = true
+        else
+            grue_protect.circuit = nil
+        end
+
+        local pv = inst.components.playervision
+        if pv and pv.nightvision then
+            grue_protect.mole = true
+        else
+            grue_protect.mole = nil
+        end
+        eval_grue_protect()
+    end
+
+    grue_fns.OnEnterLight = function()
+        grue_protect.light = true
+        eval_grue_protect()
+    end
+
+    grue_fns.OnEnterDark = function()
+        grue_protect.light = nil
+        eval_grue_protect()
     end
 end
 
 ----------------------------------------
------------- Automatic Stuff -----------
+-------------- Auto Toggle -------------
 ----------------------------------------
-
-local function set_nv(inst, enable) --Set nightvision, restricted based on moggles and WX's circuit
-    local pv = inst.components.playervision
-    if pv and not (inst._forced_nightvision and inst._forced_nightvision:value()) then
-        pv:ForceNightVision(enable and not pv.nightvision)
-    end
-end
 
 local function OnEnterDark(inst)
-    _G.t.dark = _G.t.dark + 1 --DEBUG
-    --dprint(inst, "dark = ".._G.t.dark)
-    if FREENIGHTVISION_GRUEALERT and GrueAlertTask == nil then
-        GrueAlertTask = inst:DoPeriodicTask(0.25, GrueAlertFn)
-    end
-    if AUTO_DARK > 2 then --AUTO_DARK: 0=Disabled, 1=Night, 2=NightCaves, 3=Dark
-        set_nv(inst, true)
-    end
+    set_nv(inst, true)
 end
 
 local function OnEnterLight(inst)
-    _G.t.light = _G.t.light + 1 --DEBUG
-    --dprint(inst, "light = ".._G.t.light)
-    if GrueAlertTask then
-        GrueAlertTask:Cancel()
-        GrueAlertTask = nil
-    end
-    if AUTO_LIGHT > 1 then --AUTO_LIGHT: 0=Disabled, 1=Day, 2=Light
-        set_nv(inst, false)
-    end
+    set_nv(inst, false)
 end
 
 local function OnPhaseChanged(inst, phase)
-    _G.t.phase = _G.t.phase + 1 --DEBUG
-    --dprint(inst, "phase = ".._G.t.phase)
     local pv = inst.components.playervision
     if not pv or DUSK_IS_DAY and phase == "dusk" then
         return --If DUSK_IS_DAY and called from listener, then ignore day -> dusk
     end
 
     local state = _G.TheWorld.state
-    if pv.forcenightvision then
-        if AUTO_LIGHT == 1 and
-            (state.isday or
-            state.isdusk and DUSK_IS_DAY or
-            state.isnight and state.isfullmoon) then
+    if inst._free_nightvision then
+        if AUTO_LIGHT == 1 and --AUTO_LIGHT: 1=Day
+            (state.isday or state.isfullmoon or
+            state.isdusk and DUSK_IS_DAY) then
                 set_nv(inst, false)
         end
-    elseif (AUTO_DARK == 1 or AUTO_DARK == 2) and
+    elseif (AUTO_DARK == 1 or AUTO_DARK == 2) and --AUTO_DARK: 1=Night, 2=NightCaves
         (state.isdusk and not DUSK_IS_DAY or
         state.isnight and not state.isfullmoon) then
             set_nv(inst, true)
     end
 end
 
-local function OnNightVision(inst, enabled)
-    _G.t.nv = _G.t.nv + 1 --DEBUG
-    --dprint(inst, "nv = ".._G.t.nv)
+local function OnMoleVision(inst, enabled)
     if enabled then
-        if MOGGLES_EQUIP > 2 then --AutoToggleOff
+        if MOGGLES_EQUIP > 2 then --MOGGLES_EQUIP: 3=AutoToggleOff
             set_nv(inst, false)
         end
     elseif _G.TheWorld:HasTag("cave") then
-        if AUTO_DARK == 2 then --Auto enabled for caves
+        if AUTO_DARK == 2 then --Auto enable for caves
             set_nv(inst, true)
         end
     else --Set based on auto light/dark settings
         OnPhaseChanged(inst)
     end
 
-    if NV_ICON then
-        inst:PushEvent("nv_change") --Update icon
+    if NV_ICON or GRUE_ALERT == 1 then
+        inst:PushEvent("nv_change")
     end
 end
 
 local function MogglesOn(inst, data)
-    --dprint(inst, "moggles on")
-    if inst == _G.ThePlayer and data and data.item and data.item:HasTag("nightvision") then
-        inst:DoTaskInTime(0, OnNightVision, true)
+    if data and data.item and data.item:HasTag("nightvision") then
+        inst:DoTaskInTime(0, OnMoleVision, true)
     end
 end
 
 local function MogglesOff(inst, data)
-    --dprint(inst, "moggles off")
-    if inst == _G.ThePlayer and data and data.item and data.item:HasTag("nightvision") then
-        local inv = inst.replica and inst.replica.inventory
-        if inv then --Might have other nightvision equipment
-            inst:DoTaskInTime(0, OnNightVision, inv:EquipHasTag("nightvision"))
-        else --Player lost inventory component somehow
-            inst:DoTaskInTime(0, OnNightVision, false)
-        end
+    if data and data.item and data.item:HasTag("nightvision") then
+        inst:DoTaskInTime(0, OnMoleVision, inst.replica.inventory:EquipHasTag("nightvision"))
     end
 end
 
@@ -174,7 +224,7 @@ end
 -------------- PlayerVision ------------
 ----------------------------------------
 
-if DAY_CC or NIGHT_CC or NV_ICON then
+if DAY_CC or NIGHT_CC or NV_ICON or WX_ACTIVATE > 2 or GRUE_ALERT == 1 then --Need WX circuit stuff or colorcubes
     local function find_cc(fn) --Upvalue hack PlayerVision.UpdateCCTable
         if not fn then
             return false
@@ -192,22 +242,31 @@ if DAY_CC or NIGHT_CC or NV_ICON then
     end
 
     AddComponentPostInit("playervision", function(self)
-        if NV_ICON and self.ForceNightVision then
-            local old_fn = self.ForceNightVision
+        if self.ForceNightVision and (NV_ICON or WX_ACTIVATE > 2 or
+            GRUE_ALERT == 1 and not (GRUE_ALERT_NV_ONLY and self.inst.components.grue)) then --Make sure absolutely necessary
+                local old_fn = self.ForceNightVision
 
-            function self:ForceNightVision(force) --Track free and WX nightvision
-                old_fn(self, force)
-                self.inst:PushEvent("nv_change") --Update icon
-            end
+                function self:ForceNightVision(force) --Track WX circuit
+                    local prev_circuit = (is_circuit_on(self.inst) == true) --Force boolean
+                    old_fn(self, force)
+
+                    if prev_circuit == not is_circuit_on(self.inst) then --Circuit was toggled
+                        self.inst:PushEvent("nv_change")
+
+                        if WX_ACTIVATE > 2 and not prev_circuit then --WX_ACTIVATE: 3=AutoToggleOff
+                            set_nv(inst, false)
+                        end
+                    end
+                end
         end
 
         if not (DAY_CC or NIGHT_CC) then
-            return
+            return --Don't touch colorcubes
         end
 
         local cc_table = find_cc(self.UpdateCCTable)
         if not cc_table then
-            return --Somebody removed it!
+            return --Somebody messed with UpdateCCTable!
         end
 
         if DAY_CC then --Filename or false
@@ -232,10 +291,42 @@ end
 ----------------------------------------
 
 local function init_client_lightwatcher(inst) --Push "enterlight" and "enterdark" events if needed
-    if not inst.components.grue and --If singleplayer then player already pushed
-        (FREENIGHTVISION_GRUEALERT or AUTO_DARK > 2 or AUTO_LIGHT > 1) then
+    if not inst.components.grue and --If grue then is solo caveless and events already pushed
+        (GRUE_ALERT > 0 or AUTO_DARK > 2 or AUTO_LIGHT > 1) then
             inst:AddComponent("client_lightwatcher")
     end
+end
+
+local function init_grue_alert(inst)
+    if GRUE_ALERT == 1 then --GRUE_ALERT: 1=WarnVulnerable, 2=AlwaysWarn
+        if GRUE_ALERT_NV_ONLY and inst.components.grue then
+            return --If grue then is solo caveless and free nv always protecting
+        end
+
+        inst:ListenForEvent("invincibletoggle", grue_fns.OnInvincible)
+        inst:ListenForEvent("death", grue_fns.OnDeath)
+        inst:ListenForEvent("ms_respawnedfromghost", grue_fns.OnAlive)
+        inst:ListenForEvent("newstate", grue_fns.OnEnterState)
+        inst:ListenForEvent("nv_change", grue_fns.OnNightvision)
+
+        if not inst.components.health or inst.components.health.invincible then
+            --Health:IsInvincible() would track temp_invincible states, which doesn't pause grue
+            grue_fns.OnInvincible(inst, {invincible = true})
+        end
+
+        if inst:HasTag("playerghost") then
+            grue_fns.OnDeath()
+        end
+    end
+
+    inst:ListenForEvent("enterlight", grue_fns.OnEnterLight)
+    inst:ListenForEvent("enterdark", grue_fns.OnEnterDark)
+
+    if inst:IsInLight() then
+        grue_fns.OnEnterLight()
+    end
+
+    inst:ListenForEvent("ms_playerdespawn", grue_fns.ResetGrueAlert) --"ms_playerdespawnanddelete", "ms_playerseamlessswaped"? check inst before and after
 end
 
 local function init_nv_icon(hud)
@@ -265,21 +356,23 @@ local function init_fn(inst)
         init_client_lightwatcher(inst)
     end
 
+    if GRUE_ALERT > 0 then --GRUE_ALERT: 1=WarnVulnerable, 2=AlwaysWarn
+        init_grue_alert(inst)
+    end
+
     if NV_ICON then
         init_nv_icon(inst.HUD)
     end
 
-    if NV_ICON or MOGGLES_EQUIP > 2 or AUTO_DARK > 0 or AUTO_LIGHT > 0 then --MOGGLES_EQUIP: ..., 3=AutoToggleOff
+    if NV_ICON or GRUE_ALERT == 1 or MOGGLES_EQUIP > 2 or AUTO_DARK > 0 or AUTO_LIGHT > 0 then --MOGGLES_EQUIP: 3=AutoToggleOff
         inst:ListenForEvent("equip", MogglesOn)
         inst:ListenForEvent("unequip", MogglesOff)
 
         local pv = inst.components.playervision
-        if pv and not pv.nightvision then
-            OnNightVision(inst, false) --Check caves/night now if applicable
-        end
+        OnMoleVision(inst, pv and not pv.nightvision) --Check caves/night now if applicable, push nv_change
     end
 
-    if FREENIGHTVISION_GRUEALERT or AUTO_DARK > 2 then --AUTO_DARK: 0=Disabled, 1=Night, 2=NightCaves, 3=Dark
+    if AUTO_DARK > 2 then --AUTO_DARK: 1=Night, 2=NightCaves, 3=Dark
         inst:ListenForEvent("enterdark", OnEnterDark)
 
         inst:DoTaskInTime(0.25, function(inst) --We might already be in darkness
@@ -289,14 +382,14 @@ local function init_fn(inst)
         end)
     end
 
-    if FREENIGHTVISION_GRUEALERT or AUTO_LIGHT > 1 then --AUTO_LIGHT: 0=Disabled, 1=Day, 2=Light
+    if AUTO_LIGHT > 1 then --AUTO_LIGHT: 1=Day, 2=Light
         inst:ListenForEvent("enterlight", OnEnterLight)
         --We start off disabled by default, so no need to check for light immediately
     end
 
     if not _G.TheWorld:HasTag("cave") and (AUTO_LIGHT == 1 or AUTO_DARK == 1 or AUTO_DARK == 2) then
         inst:ListenForEvent("phasechanged", function(world, phase) inst:DoTaskInTime(0, OnPhaseChanged, phase) end, _G.TheWorld)
-        --We already checked night in OnNightVision and we start off disabled for day
+        --We already checked night in OnMoleVision and we start off disabled for day
     end
 end
 

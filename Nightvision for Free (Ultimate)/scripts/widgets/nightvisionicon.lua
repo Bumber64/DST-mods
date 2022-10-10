@@ -28,11 +28,12 @@ end
 local function free_icon(root) --Free nightvision
     local icon = root:AddChild(Image("images/inventoryimages2.xml", "molehat.tex"))
     icon:SetSize(48, 48)
-    icon:SetTint(.2, .5, 1, .5)
+    icon:SetTint(.2, .5, 1, 0.5)
 
     icon._arrange = function()
         if icon.shown then
-            local dest = root.icons.mole.shown and Vector3(x_off+3, y_off-7, 0) or --Bottom right
+            local x = x_off + (root.icons.circuit.shown and root.icons.mole.shown and -5 or 4) --Left when both
+            local dest = (root.icons.circuit.shown or root.icons.mole.shown) and Vector3(x, y_off-11, 0) or --Bottom left/right
                 Vector3(x_off, y_off, 0) --Center
             icon:MoveTo(icon:GetPosition(), dest, MOVE_TIME)
         end
@@ -50,7 +51,8 @@ local function circuit_icon(root) --WX nightvision
 
     icon._arrange = function()
         if icon.shown then
-            local dest = root.icons.mole.shown and Vector3(x_off+5, y_off-5, 0) or --Bottom right
+            local dest = root.icons.mole.shown and Vector3(x_off+7, y_off-7, 0) or --Bottom right
+                root.icons.free.shown and Vector3(x_off-5, y_off+7, 0) or --Bottom left
                 Vector3(x_off, y_off, 0) --Center
             icon:MoveTo(icon:GetPosition(), dest, MOVE_TIME)
         end
@@ -68,7 +70,8 @@ local function mole_icon(root) --Moggles nightvision
 
     icon._arrange = function()
         if icon.shown then
-            local dest = (root.icons.free.shown or root.icons.circuit.shown) and Vector3(x_off-5, y_off+7, 0) or --Top left
+            local x = x_off + (root.icons.free.shown ~= root.icons.circuit.shown and -5 or 0) --Left when circuit xor free
+            local dest = (root.icons.free.shown or root.icons.circuit.shown) and Vector3(x, y_off+7, 0) or --Top left/center
                 Vector3(x_off, y_off, 0) --Center
             icon:MoveTo(icon:GetPosition(), dest, MOVE_TIME)
         end
@@ -81,25 +84,22 @@ local function mole_icon(root) --Moggles nightvision
 end
 
 local function OnUpdateNV(root)
-    local pv = ThePlayer.components.playervision
+    if ThePlayer._free_nightvision then
+        root.icons.free:Show()
+    else
+        root.icons.free:Hide()
+    end
 
-    if not pv then
-        return
-    elseif pv.nightvision then
+    if ThePlayer._forced_nightvision and ThePlayer._forced_nightvision:value() then
+        root.icons.circuit:Show()
+    else
+        root.icons.circuit:Hide()
+    end
+
+    if ThePlayer.components.playervision and ThePlayer.components.playervision.nightvision then
         root.icons.mole:Show()
     else
         root.icons.mole:Hide()
-    end
-
-    if not pv.forcenightvision then
-        root.icons.free:Hide()
-        root.icons.circuit:Hide()
-    elseif ThePlayer._forced_nightvision and ThePlayer._forced_nightvision:value() then
-        root.icons.free:Hide()
-        root.icons.circuit:Show()
-    else
-        root.icons.free:Show()
-        root.icons.circuit:Hide()
     end
 
     for _, v in pairs(root.icons) do

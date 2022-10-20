@@ -67,9 +67,9 @@ prefabs/spider.lua -------------- COMP / SPDR
 prefabs/spiderden.lua ----------- SPDR
 prefabs/waterprojectiles.lua ---- ICEF
 
-preparedfoods.lua --------------- LEAF
-
 stategraphs/SGmoonspore.lua ----- MUSH
 stategraphs/SGmoose.lua --------- FMBL
 stategraphs/SGlureplant.lua ----- LEAF
 stategraphs/SGslurper.lua ------- FMBL
+
+preparedfoods.lua --------------- LEAF

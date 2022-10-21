@@ -41,7 +41,7 @@ local function onacceptitem(inst, giver, item)
         ts:RepairTouchStone(inst)
     end
 
-    local h = REPAIR_TYPE == 1 and giver.components.health
+    local h = REPAIR_TYPE == 1 and TUNING.HEALTH_PENALTY_ENABLED and giver.components.health
     if h then
         h:DeltaPenalty(TUNING.REVIVE_HEALTH_PENALTY)
     end

@@ -2,7 +2,7 @@
 name = "Rechargeable Touch Stones"
 description = "Recharge touch stones using life giving amulets or telltale hearts. Configurable."
 author = "Bumber"
-version = "1.1"
+version = "1.2"
 forumthread = ""
 
 icon_atlas = "modicon.xml"

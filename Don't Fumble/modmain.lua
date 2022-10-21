@@ -474,15 +474,14 @@ if cfg.PMONKEY_NOSMASH > 0 or cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GRO
     local CHEST_MUST_HAVE = {"chest"}
 
     local function ShouldSteal(inst) --limit targets based on config, streamline function
-        if inst.sg:HasStateTag("busy") or inst.components.timer and
-            inst.components.timer:TimerExists("hit") then
-                return
+        if inst.sg:HasStateTag("busy") or inst.components.timer:TimerExists("hit") then
+            return
         end
 
         inst.nothingtosteal = nil
         inst.itemtosteal = nil
 
-        if not inst.components.inventory or inst.components.inventory:IsFull() or
+        if inst.components.inventory:IsFull() or
             inst.components.combat.target and not inst.components.combat:InCooldown() then
                 return
         end
@@ -615,10 +614,11 @@ elseif cfg.SLURPER_NOSTEAL > 1 then
     local function CanHatTarget(inst, target) --fail if existing hat
         if target and target.components.inventory and
             (target.components.inventory.isopen or
-            target:HasTag("pig") or target:HasTag("manrabbit") or
+            target:HasTag("pig") or target:HasTag("manrabbit") or target:HasTag("equipmentmodel") or
             (inst._loading and target:HasTag("player"))) then
                 return not target.components.inventory:GetEquippedItem(EQUIPSLOTS.HEAD)
         end
+        return false
     end
 
     AddPrefabPostInit("slurper", function(inst)

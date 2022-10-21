@@ -2,7 +2,7 @@
 name = "Companion Configurator" --formerly "Invincible Friendly Fruit Fly"
 description = "Modify follower mass, remove loyalty loss, and make them not trigger traps. Make non-combat followers invincible or non-targetable."
 author = "Bumber"
-version = "2.2"
+version = "2.3"
 forumthread = ""
 
 icon_atlas = "modicon.xml"
@@ -357,17 +357,6 @@ configuration_options =
         default = 0,
     },
     divider,
-    {
-        name = "smallbird_notrap",
-        label = "Smallbird No Trap Trigger",
-        hover = "Should follower smallbirds and smallish tallbirds trigger traps?",
-        options =
-        {
-            {description = "Default", data = 0, hover = "Smallbirds and smallish tallbirds will trigger traps."},
-            {description = "Don't Trigger", data = 1, hover = "Follower smallbirds and smallish tallbirds won't trigger traps."},
-        },
-        default = 0,
-    },
     {
         name = "smallbird_deadleader",
         label = "Smallbird Follow on Death",

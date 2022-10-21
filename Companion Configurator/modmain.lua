@@ -47,7 +47,6 @@ local cfg =
     ROCKY_SPEED = GetModConfigData("rocky_speed"), --0:Default
     ROCKY_MASS = GetModConfigData("rocky_mass"), --0:Default
 
-    SMALLBIRD_NOTRAP = GetModConfigData("smallbird_notrap"), --0:Default, 1:notraptrigger
     SMALLBIRD_DEADLEADER = GetModConfigData("smallbird_deadleader"), --0:Default, 1:keepdeadleader
     SMALLBIRD_MASS = GetModConfigData("smallbird_mass"), --0:Default
 
@@ -241,7 +240,7 @@ local function NoHoles(pt)
     return not _G.TheWorld.Map:IsPointNearHole(pt)
 end
 
-local function follower_tele(inst, leader_pos) --modified from follower OnEntitySleep
+local function follower_tele(inst, leader_pos) --modified from follower TryPorting
     local init_pos = inst:GetPosition()
 
     if _G.distsq(leader_pos, init_pos) > TUNING.FOLLOWER_REFOLLOW_DIST_SQ then
@@ -253,7 +252,7 @@ local function follower_tele(inst, leader_pos) --modified from follower OnEntity
         local new_pos = _G.Point(leader_pos:Get())
 
         local REFOLLOW_DIST = math.sqrt(TUNING.FOLLOWER_REFOLLOW_DIST_SQ)
-        local angle = math.atan2(leader_pos.z - init_pos.z, init_pos.x - leader_pos.x)
+        local angle = math.atan2(leader_pos.z - init_pos.z, init_pos.x - leader_pos.x) --leader:GetAngleToPoint(init_pos) * DEGREES
         if inst.components.locomotor:CanPathfindOnWater() then
             local offset = _G.FindSwimmableOffset(leader_pos, angle, REFOLLOW_DIST, 10, false, true, NoHoles, false)
             if offset then
@@ -683,16 +682,12 @@ end
 --- Smallbirds and Smallish Tallbirds --
 ----------------------------------------
 
-if cfg.SMALLBIRD_NOTRAP > 0 or cfg.SMALLBIRD_DEADLEADER > 0 or cfg.SMALLBIRD_MASS > 0 then
+if cfg.SMALLBIRD_DEADLEADER > 0 or cfg.SMALLBIRD_MASS > 0 then
     local function smallbird_leadfn(inst, new_leader, prev_leader)
         local player_new = (new_leader and new_leader:HasTag("player")) and new_leader
         local player_old = (prev_leader and prev_leader:HasTag("player")) and prev_leader
 
         if player_new and not player_old then
-            if cfg.SMALLBIRD_NOTRAP > 0 then
-                inst:AddTag("notraptrigger")
-            end
-
             if cfg.SMALLBIRD_MASS > 0 then
                 if not inst._default_mass then
                     inst._default_mass = inst.Physics:GetMass()
@@ -700,10 +695,6 @@ if cfg.SMALLBIRD_NOTRAP > 0 or cfg.SMALLBIRD_DEADLEADER > 0 or cfg.SMALLBIRD_MAS
                 inst.Physics:SetMass(cfg.SMALLBIRD_MASS)
             end
         elseif player_old and not player_new then
-            if cfg.SMALLBIRD_NOTRAP > 0 then
-                inst:RemoveTag("notraptrigger")
-            end
-
             if inst._default_mass then
                 inst.Physics:SetMass(inst._default_mass)
                 inst._default_mass = nil

@@ -70,7 +70,7 @@ local function find_mfarm_upvalues(inst)
     my_StartGrowing = UpvalueHacker.GetUpvalue(inst.components.trader.onaccept, "StartGrowing")
 
     if not my_StartGrowing then
-        modprint(my_StartGrowing, "StartGrowing not found in old \"onacceptitem\"!")
+        modprint("StartGrowing not found in old \"onacceptitem\"!")
         return false
     end
 

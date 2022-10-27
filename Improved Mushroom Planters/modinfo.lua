@@ -2,7 +2,7 @@
 name = "Improved Mushroom Planters"
 description = "Planted mushrooms don't turn into rot in winter, plus configurable options for fertilizers and moon shrooms."
 author = "Bumber"
-version = "1.3"
+version = "1.4"
 forumthread = ""
 
 icon_atlas = "modicon.xml"
@@ -12,6 +12,7 @@ api_version = 10
 dst_compatible = true
 all_clients_require_mod = true
 client_only_mod = false
+priority = 1
 
 configuration_options =
 {

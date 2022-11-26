@@ -295,6 +295,7 @@ end
 local function deadleaderfn(self, player) --stop teleporting to player ghost
     local f = self.components.follower
     if f.leader and f.leader == player then
+        f.noleashing = true --disable wormhole teleport
         f:StopLeashing()
     end
 end
@@ -306,6 +307,8 @@ local function reviveleaderfn(self, player) --start teleporting to player again
     elseif self:IsAsleep() then --leashing won't teleport if already asleep
         follower_tele(self, player:GetPosition())
     end
+
+    f.noleashing = nil --enable wormhole teleport
     f:StartLeashing()
 end
 
@@ -321,6 +324,8 @@ local function despawnleaderfn(self, data) --make sure followers are ready to re
     elseif _G.distsq(self:GetPosition(), player:GetPosition()) > TUNING.FOLLOWER_REFOLLOW_DIST_SQ then
         follower_tele(self, player:GetPosition())
     end
+
+    f.noleashing = nil --enable wormhole teleport
     f:StartLeashing() --player may come back alive from caves, deadleaderfn will undo this if not
 end
 
@@ -782,73 +787,4 @@ if cfg.SMALLBIRD_DEADLEADER > 0 or cfg.SMALLBIRD_MASS > 0 then
             end
         end)
     end
-end
-
-----------------------------------------
---------------- Wormholes --------------
-----------------------------------------
-
-
-if cfg.FOLLOW_GHOST == 0 then
-    AddComponentPostInit("teleporter", function(self) --don't teleport followers of player ghosts
-        function self:Activate(doer)
-            if not self:IsActive() then
-                return false
-            end
-
-            if self.onActivate ~= nil then
-                self.onActivate(self.inst, doer, self.migration_data)
-            end
-
-            if self.migration_data ~= nil then
-                local data = self.migration_data
-                if data.worldid ~= TheShard:GetShardId() and Shard_IsWorldAvailable(data.worldid) then
-                    _G.TheWorld:PushEvent("ms_playerdespawnandmigrate", { player = doer, portalid = nil, worldid = data.worldid, x = data.x, y = data.y, z = data.z })
-                    return true
-                else
-                    return false
-                end
-            end
-
-            self:Teleport(doer)
-
-            if self.targetTeleporter.components.teleporter ~= nil then
-                if doer:HasTag("player") then
-                    self.targetTeleporter.components.teleporter:ReceivePlayer(doer, self.inst)
-                elseif doer.components.inventoryitem ~= nil then
-                    self.targetTeleporter.components.teleporter:ReceiveItem(doer, self.inst)
-                end
-            end
-
-            if doer.components.leader ~= nil and not doer:HasTag("playerghost") then --don't teleport followers of player ghosts
-                for follower, v in pairs(doer.components.leader.followers) do
-                    self:Teleport(follower)
-                end
-            end
-
-            if doer.components.inventory ~= nil then
-                for k, item in pairs(doer.components.inventory.itemslots) do
-                    if item.components.leader ~= nil then
-                        for follower, v in pairs(item.components.leader.followers) do
-                            self:Teleport(follower)
-                        end
-                    end
-                end
-
-                for k, equipped in pairs(doer.components.inventory.equipslots) do
-                    if equipped.components.container ~= nil then
-                        for j, item in pairs(equipped.components.container.slots) do
-                            if item.components.leader ~= nil then
-                                for follower, v in pairs(item.components.leader.followers) do
-                                    self:Teleport(follower)
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-
-            return true
-        end
-    end)
 end

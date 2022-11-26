@@ -38,7 +38,6 @@ components/farming_manager.lua -- ICEF
 components/firedetector.lua ----- ICEF
 components/follower.lua --------- COMP
 components/freezable.lua -------- COMP
-components/teleporter.lua ------- COMP
 
 prefabs/acorn.lua --------------- BRCH
 prefabs/bearger.lua ------------- FMBL
@@ -67,9 +66,9 @@ prefabs/spider.lua -------------- COMP / SPDR
 prefabs/spiderden.lua ----------- SPDR
 prefabs/waterprojectiles.lua ---- ICEF
 
+stategraphs/SGlureplant.lua ----- LEAF
 stategraphs/SGmoonspore.lua ----- MUSH
 stategraphs/SGmoose.lua --------- FMBL
-stategraphs/SGlureplant.lua ----- LEAF
 stategraphs/SGslurper.lua ------- FMBL
 
 preparedfoods.lua --------------- LEAF

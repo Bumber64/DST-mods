@@ -2,7 +2,7 @@
 name = "Don't Fumble"
 description = "Prevent players from fumbling tools and weapons. Also prevent monsters from smashing and stealing. Configurable."
 author = "Bumber"
-version = "1.3"
+version = "1.4"
 forumthread = ""
 
 icon_atlas = "modicon.xml"

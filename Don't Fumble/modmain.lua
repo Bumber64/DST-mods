@@ -861,7 +861,7 @@ if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_NOCHEST > 0 then
 
     local function splumonkey_surgery(root)
         if cfg.SPLUMONKEY_NOSTEAL > 0 then
-            local node = root.children[7]
+            local node = root.children[6]
             if node and node.children and node.children[1] and node.children[2] and
                 node.children[1].name == "Should Eat" and
                 node.children[2].name == "DoAction" then
@@ -872,7 +872,7 @@ if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_NOCHEST > 0 then
             end
         end
 
-        local node = root.children[10]
+        local node = root.children[9]
         if node and node.children and node.children[1] and node.children[2] and
             node.children[1].name == "Annoy Leader" and
             node.children[2].name == "DoAction" then

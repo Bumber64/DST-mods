@@ -427,14 +427,14 @@ if cfg.SPIDERS_NOTRAP > 0 or cfg.SPIDERS_DEADLEADER > 0 or cfg.SPIDERS_MASS > 0 
         end)
 
         AddBrainPostInit("spider_waterbrain", function(self) --has 2 Follow nodes that target leader
-            local node = self.bt.root.children[6]
+            local node = self.bt.root.children[5]
             if node and node.children then
                 node = node.children[2]
             end
             if node and node.name == "Follow" then
                 node.target = followleaderfn
 
-                node = self.bt.root.children[7]
+                node = self.bt.root.children[6]
                 if node and node.children then
                     node = node.children[2]
                 end
@@ -537,7 +537,7 @@ if cfg.PIGMERMBUN_NOTRAP > 0 or cfg.PIGMERMBUN_LOYALTY > 0 or cfg.PIGMERMBUN_DEA
         end)
 
         AddBrainPostInit("mermbrain", function(self)
-            local node = self.bt.root.children[13]
+            local node = self.bt.root.children[12]
             if node and node.children then
                 node = node.children[1]
             end

@@ -12,6 +12,8 @@ local cfg =
 {
     CHESTER_HEALTH = GetModConfigData("chester_health"), --0:Default, 1:10k, 2:InstantRegen, 3:Invincible
     CHESTER_NOTARGET = GetModConfigData("chester_notarget"), --0:Default, 1:notarget
+    HUTCH_FRIDGE = GetModConfigData("hutch_fridge"), --0:Default, 1:fridge
+    SHADOW_FRIDGE = GetModConfigData("shadow_fridge"), --0:Default, 1:fridge 2:fridge-spoiler
     CHESTER_MASS = GetModConfigData("chester_mass"), --0:Default
 
     GLOMMER_HEALTH = GetModConfigData("glommer_health"), --0:Default, 1:10k, 2:InstantRegen, 3:Invincible
@@ -30,7 +32,14 @@ local cfg =
     LAVAE_PET_HEALTH = GetModConfigData("lavae_pet_health"), --0:Default, 1:10k, 2:InstantRegen, 3:Invincible
     LAVAE_PET_NOTARGET = GetModConfigData("lavae_pet_notarget"), --0:Default, 1:notarget
     LAVAE_PET_NOFREEZE = GetModConfigData("lavae_pet_nofreeze"), --0:Default, 1:Protect, 2:Immune
+    LAVAE_PET_NOFIRE = GetModConfigData("lavae_pet_nofire"), --0:Default, 1:Prevent
     LAVAE_PET_MASS = GetModConfigData("lavae_pet_mass"), --0:Default
+
+    BEEFALO_HEALTH = GetModConfigData("beefalo_health"), --0:Default, 1:10k, 2:InstantRegen, 3:Invincible
+    BEEFALO_NOTARGET = GetModConfigData("beefalo_notarget"), --0:Default, 1:notarget
+    BEEFALO_NOTRAP = GetModConfigData("beefalo_notrap"), --0:Default, 1:notraptrigger
+    BEEFALO_MASS = GetModConfigData("beefalo_mass"), --0:Default
+    BEEFALO_RIDE = GetModConfigData("beefalo_ride"), --0:Suspend, 1:Enabled
 
     SPIDERS_NOTRAP = GetModConfigData("spiders_notrap"), --0:Default, 1:notraptrigger
     SPIDERS_DEADLEADER = GetModConfigData("spiders_deadleader"), --0:Default, 1:keepdeadleader
@@ -61,29 +70,66 @@ end
 ----------- Chester and Hutch ----------
 ----------------------------------------
 
-if cfg.CHESTER_HEALTH > 0 or cfg.CHESTER_NOTARGET > 0 or cfg.CHESTER_MASS > 0 then
-    for _, v in pairs({"chester", "hutch"}) do
-        AddPrefabPostInit(v, function(inst)
-            if cfg.CHESTER_HEALTH > 0 and inst.components.health then
-                inst.components.health:SetMaxHealth(10000)
-                if cfg.CHESTER_HEALTH == 2 then
-                    inst.components.health:StartRegen(10000, 1)
-                elseif cfg.CHESTER_HEALTH > 2 then
-                    inst.components.health:SetInvincible(true)
-                    inst:ListenForEvent("teleported", function(inst) inst.components.health:SetInvincible(true) end)
-                end
-            end
+local function set_invincible(inst)
+    inst.components.health:SetInvincible(true)
+end
 
-            if cfg.CHESTER_NOTARGET > 0 then
-                inst:AddTag("notarget")
-                inst.components.locomotor:SetTriggersCreep(false)
-            end
+if cfg.SHADOW_FRIDGE > 0 then
+    AddPrefabPostInit("shadow_container", function(inst)
+        inst:AddTag("fridge")
 
-            if cfg.CHESTER_MASS > 0 then
-                inst.Physics:SetMass(cfg.CHESTER_MASS)
+        if cfg.SHADOW_FRIDGE > 1 then
+            inst:RemoveTag("spoiler")
+        end
+    end)
+end
+
+if cfg.CHESTER_HEALTH > 0 or cfg.CHESTER_NOTARGET > 0 or cfg.HUTCH_FRIDGE > 0 or cfg.CHESTER_MASS > 0 then
+    AddPrefabPostInit("chester", function(inst)
+        if cfg.CHESTER_HEALTH > 0 and inst.components.health then
+            inst.components.health:SetMaxHealth(10000)
+            if cfg.CHESTER_HEALTH == 2 then
+                inst.components.health:StartRegen(10000, 1)
+            elseif cfg.CHESTER_HEALTH > 2 then
+                inst.components.health:SetInvincible(true)
+                inst:ListenForEvent("teleported", set_invincible)
             end
-        end)
-    end
+        end
+
+        if cfg.CHESTER_NOTARGET > 0 then
+            inst:AddTag("notarget")
+            inst.components.locomotor:SetTriggersCreep(false)
+        end
+
+        if cfg.CHESTER_MASS > 0 then
+            inst.Physics:SetMass(cfg.CHESTER_MASS)
+        end
+    end)
+
+    AddPrefabPostInit("hutch", function(inst)
+        if cfg.CHESTER_HEALTH > 0 and inst.components.health then
+            inst.components.health:SetMaxHealth(10000)
+            if cfg.CHESTER_HEALTH == 2 then
+                inst.components.health:StartRegen(10000, 1)
+            elseif cfg.CHESTER_HEALTH > 2 then
+                inst.components.health:SetInvincible(true)
+                inst:ListenForEvent("teleported", set_invincible)
+            end
+        end
+
+        if cfg.CHESTER_NOTARGET > 0 then
+            inst:AddTag("notarget")
+            inst.components.locomotor:SetTriggersCreep(false)
+        end
+
+        if cfg.HUTCH_FRIDGE > 0 then
+            inst:AddTag("fridge")
+        end
+
+        if cfg.CHESTER_MASS > 0 then
+            inst.Physics:SetMass(cfg.CHESTER_MASS)
+        end
+    end)
 end
 
 ----------------------------------------
@@ -98,7 +144,7 @@ if cfg.GLOMMER_HEALTH > 0 or cfg.GLOMMER_NOTARGET > 0 or cfg.GLOMMER_MASS > 0 th
                 inst.components.health:StartRegen(10000, 1)
             elseif cfg.GLOMMER_HEALTH > 2 then
                 inst.components.health:SetInvincible(true)
-                inst:ListenForEvent("teleported", function(inst) inst.components.health:SetInvincible(true) end)
+                inst:ListenForEvent("teleported", set_invincible)
             end
         end
 
@@ -124,7 +170,7 @@ if cfg.POLLY_HEALTH > 0 or cfg.POLLY_NOTARGET > 0 or cfg.POLLY_MASS > 0 then
                 inst.components.health:StartRegen(10000, 1)
             elseif cfg.POLLY_HEALTH > 2 then
                 inst.components.health:SetInvincible(true)
-                inst:ListenForEvent("teleported", function(inst) inst.components.health:SetInvincible(true) end)
+                inst:ListenForEvent("teleported", set_invincible)
             end
         end
 
@@ -150,7 +196,7 @@ if cfg.FFFLY_HEALTH > 0 or cfg.FFFLY_NOTARGET > 0 or cfg.FFFLY_NOFREEZE > 0 or c
                 inst.components.health:StartRegen(10000, 1)
             elseif cfg.FFFLY_HEALTH > 2 then
                 inst.components.health:SetInvincible(true)
-                inst:ListenForEvent("teleported", function(inst) inst.components.health:SetInvincible(true) end)
+                inst:ListenForEvent("teleported", set_invincible)
             end
         end
 
@@ -172,7 +218,7 @@ end
 --------- Extra-adorable Lavae ---------
 ----------------------------------------
 
-if cfg.LAVAE_PET_HEALTH > 0 or cfg.LAVAE_PET_NOTARGET > 0 or cfg.LAVAE_PET_NOFREEZE > 0 or cfg.LAVAE_PET_MASS > 0 then
+if cfg.LAVAE_PET_HEALTH > 0 or cfg.LAVAE_PET_NOTARGET > 0 or cfg.LAVAE_PET_NOFREEZE > 0 or cfg.LAVAE_PET_NOFIRE > 0 or cfg.LAVAE_PET_MASS > 0 then
     AddPrefabPostInit("lavae_pet", function(inst)
         if cfg.LAVAE_PET_HEALTH > 0 and inst.components.health then
             inst.components.health:SetMaxHealth(10000)
@@ -183,7 +229,7 @@ if cfg.LAVAE_PET_HEALTH > 0 or cfg.LAVAE_PET_NOTARGET > 0 or cfg.LAVAE_PET_NOFRE
                     inst.components.hunger:SetPercent(100) --can't restore hunger with food while invincible
                 end
                 inst.components.health:SetInvincible(true)
-                inst:ListenForEvent("teleported", function(inst) inst.components.health:SetInvincible(true) end)
+                inst:ListenForEvent("teleported", set_invincible)
 
                 local old_onfreezefn = inst.components.freezable.onfreezefn
                 inst.components.freezable.onfreezefn = function(inst)
@@ -205,6 +251,10 @@ if cfg.LAVAE_PET_HEALTH > 0 or cfg.LAVAE_PET_NOTARGET > 0 or cfg.LAVAE_PET_NOFRE
             inst.sg.tags["nofreeze"] = true
         elseif cfg.LAVAE_PET_NOFREEZE > 1 then
             inst:RemoveComponent("freezable")
+        end
+
+        if cfg.LAVAE_PET_NOFIRE > 0 and inst.components.propagator then
+            inst.components.propagator:StopSpreading()
         end
 
         if (cfg.LAVAE_PET_NOFREEZE > 0 or cfg.LAVAE_PET_NOTARGET > 0) and inst.components.trader then
@@ -229,6 +279,114 @@ if cfg.LAVAE_PET_HEALTH > 0 or cfg.LAVAE_PET_NOTARGET > 0 or cfg.LAVAE_PET_NOFRE
         if cfg.LAVAE_PET_MASS > 0 then
             inst.Physics:SetMass(cfg.LAVAE_PET_MASS)
         end
+    end)
+end
+
+----------------------------------------
+---------------- Beefalo ---------------
+----------------------------------------
+
+if cfg.BEEFALO_HEALTH > 0 or cfg.BEEFALO_NOTARGET > 0 or cfg.BEEFALO_NOTRAP > 0 or cfg.BEEFALO_MASS > 0 then
+    local function beef_enable(inst, enable)
+        local c = (cfg.BEEFALO_HEALTH > 0 or cfg.BEEFALO_NOTARGET > 0) and inst.components.combat
+
+        if enable then
+            if c then --disable beefalo combat
+                c:SetShouldAggroFn(function() end)
+                c:DropTarget()
+            end
+
+            if cfg.BEEFALO_HEALTH > 0 and inst.components.health then
+                inst.components.health:SetMaxHealth(10000)
+                if cfg.BEEFALO_HEALTH == 2 then
+                    inst.components.health:StartRegen(10000, 1)
+                elseif cfg.BEEFALO_HEALTH > 2 then
+                    inst.components.health:SetInvincible(true)
+                    inst:ListenForEvent("teleported", set_invincible)
+                end
+            end
+
+            if cfg.BEEFALO_NOTARGET > 0 then
+                inst:AddTag("notarget")
+            end
+
+            if cfg.BEEFALO_NOTRAP > 0 then
+                inst:AddTag("notraptrigger")
+            end
+
+            if cfg.BEEFALO_MASS > 0 then
+                inst.Physics:SetMass(cfg.BEEFALO_MASS)
+            end
+        else
+            if c then --restart beefalo combat
+                c:SetShouldAggroFn(nil)
+            end
+
+            if cfg.BEEFALO_HEALTH > 0 and inst.components.health then
+                inst.components.health:SetMaxHealth(TUNING.BEEFALO_HEALTH)
+                if cfg.BEEFALO_HEALTH == 2 then
+                    inst.components.health:StartRegen(TUNING.BEEFALO_HEALTH_REGEN, TUNING.BEEFALO_HEALTH_REGEN_PERIOD)
+                elseif cfg.BEEFALO_HEALTH > 2 then
+                    inst:RemoveEventCallback("teleported", set_invincible)
+                    inst.components.health:SetInvincible(false)
+                end
+            end
+
+            if cfg.BEEFALO_NOTARGET > 0 then
+                inst:RemoveTag("notarget")
+            end
+
+            if cfg.BEEFALO_NOTRAP > 0 then
+                inst:RemoveTag("notraptrigger")
+            end
+
+            if cfg.BEEFALO_MASS > 0 then
+                inst.Physics:SetMass(100)
+            end
+        end
+    end
+
+    local function check_mount(inst, data)
+        local new = data.newrider and data.newrider:HasTag("player")
+        local old = data.oldrider and data.oldrider:HasTag("player")
+
+        if cfg.BEEFALO_RIDE > 0 then
+            if new and (cfg.BEEFALO_HEALTH > 0 or cfg.BEEFALO_NOTARGET > 0) then
+                data.newrider.components.combat.redirectdamagefn = nil
+            end
+        elseif new and not old then
+            beef_enable(inst, false)
+        elseif old and not new then
+            beef_enable(inst, true)
+        end
+    end
+
+    local function bell_on(inst, bell)
+        local r = inst.components.rideable and inst.components.rideable:GetRider()
+
+        if r and r:HasTag("player") then
+            if cfg.BEEFALO_RIDE > 0 then
+                if cfg.BEEFALO_HEALTH > 0 or cfg.BEEFALO_NOTARGET > 0 then
+                    r.components.combat.redirectdamagefn = nil
+                end
+
+                beef_enable(inst, true)
+            end
+        else
+            beef_enable(inst, true)
+        end
+
+        inst:ListenForEvent("riderchanged", check_mount)
+    end
+
+    local function bell_off(inst)
+        inst:RemoveEventCallback("riderchanged", check_mount)
+        beef_enable(inst, false)
+    end
+
+    AddPrefabPostInit("beefalo", function(inst)
+        inst:ListenForEvent("startfollowing", bell_on)
+        inst:ListenForEvent("stopfollowing", bell_off)
     end)
 end
 

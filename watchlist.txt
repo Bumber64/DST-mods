@@ -41,6 +41,7 @@ components/freezable.lua -------- COMP
 
 prefabs/acorn.lua --------------- BRCH
 prefabs/bearger.lua ------------- FMBL
+prefabs/beefalo.lua ------------- COMP
 prefabs/bunnyman.lua ------------ COMP / LOOT
 prefabs/chester.lua ------------- COMP
 prefabs/deciduoustrees.lua ------ BRCH
@@ -60,6 +61,7 @@ prefabs/player_common.lua ------- FMBL
 prefabs/polly_rogers.lua -------- COMP
 prefabs/powdermonkey.lua -------- FMBL
 prefabs/rocky.lua --------------- COMP
+prefabs/shadow_container.lua ---- COMP
 prefabs/slurper.lua ------------- FMBL
 prefabs/smallbird.lua ----------- COMP
 prefabs/spider.lua -------------- COMP / SPDR

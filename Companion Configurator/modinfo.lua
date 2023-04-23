@@ -2,7 +2,7 @@
 name = "Companion Configurator" --formerly "Invincible Friendly Fruit Fly"
 description = "Modify follower mass, remove loyalty loss, and make them not trigger traps. Make non-combat followers invincible or non-targetable."
 author = "Bumber"
-version = "2.4"
+version = "2.5"
 forumthread = ""
 
 icon_atlas = "modicon.xml"
@@ -46,6 +46,29 @@ configuration_options =
         {
             {description = "Default", data = 0, hover = "Can be targeted and trigger spider creep."},
             {description = "Non-targetable", data = 1, hover = "Can't be targeted or trigger spider creep."},
+        },
+        default = 0,
+    },
+    {
+        name = "hutch_fridge",
+        label = "Hutch Fridge",
+        hover = "Make Hutch act like Snow Chester.",
+        options =
+        {
+            {description = "Default", data = 0, hover = "Normal spoilage rate."},
+            {description = "Cold", data = 1, hover = "Cool thermal stones and slow food spoilage."},
+        },
+        default = 0,
+    },
+    {
+        name = "shadow_fridge",
+        label = "Shadow Fridge",
+        hover = "Make Maxwell and Shadow Chester's shared storage act like Snow Chester.",
+        options =
+        {
+            {description = "Default", data = 0, hover = "High spoilage rate."},
+            {description = "Cool", data = 1, hover = "Cool thermal stones and somewhat slow food spoilage."},
+            {description = "Cold", data = 2, hover = "Cool thermal stones and slow food spoilage."},
         },
         default = 0,
     },
@@ -201,7 +224,18 @@ configuration_options =
         {
             {description = "Default", data = 0, hover = "Can be frozen as usual."},
             {description = "Freeze Protection", data = 1, hover = "Can only be frozen by giving it an ice staff."},
-            {description = "Freeze Immunity", data = 2, hover = "Can't be frozen. Giving it an ice staff produces a Chilled Lavae."},
+            {description = "Freeze Immunity", data = 2, hover = "Can't be frozen. Giving it an ice staff yields a Chilled Lavae."},
+        },
+        default = 0,
+    },
+    {
+        name = "lavae_pet_nofire",
+        label = "Pet Lavae Fire Prevention",
+        hover = "Whether or not extra-adorable lavae can ignite nearby objects.",
+        options =
+        {
+            {description = "Default", data = 0, hover = "Lavae can start fires."},
+            {description = "Prevent", data = 1, hover = "Lavae won't start fires. (Still provides warmth for players.)"},
         },
         default = 0,
     },
@@ -216,6 +250,62 @@ configuration_options =
             {description = "30", data = 30, hover = ""},
             {description = "Default", data = 0, hover = "50 when unmodded"},
             {description = "70", data = 70, hover = ""},
+        },
+        default = 0,
+    },
+    divider,
+    {
+        name = "beefalo_health",
+        label = "Bonded Beefalo Health",
+        hover = "Make bonded beefalo harder to kill.\nDisables beefalo attacks while active.",
+        options = health_options("1000 health when unmodded."),
+        default = 0,
+    },
+    {
+        name = "beefalo_notarget",
+        label = "Bonded Beefalo Non-targetable",
+        hover = "Whether or not bonded beefalo can be targeted for attacks.\nDisables beefalo attacks while active.",
+        options =
+        {
+            {description = "Default", data = 0, hover = "Can be targeted and trigger spider creep."},
+            {description = "Non-targetable", data = 1, hover = "Can't be targeted or trigger spider creep."},
+        },
+        default = 0,
+    },
+    {
+        name = "beefalo_ride",
+        label = "Bonded Beefalo Riding",
+        hover = "Do the above settings apply while riding the bonded beefalo?\n(Ignored if above are default.)",
+        options =
+        {
+            {description = "Suspend", data = 0, hover = "Temporarily disable while mounted."},
+            {description = "Always On", data = 1, hover = "Apply even while mounted. Player recieves mounted damage."},
+        },
+        default = 0,
+    },
+    {
+        name = "beefalo_notrap",
+        label = "Beefalo No Trap Trigger",
+        hover = "Should bonded beefalo trigger traps?",
+        options =
+        {
+            {description = "Default", data = 0, hover = "All beefalo will trigger traps."},
+            {description = "Don't Trigger", data = 1, hover = "Bonded beefalo won't trigger traps."},
+        },
+        default = 0,
+    },
+    {
+        name = "beefalo_mass",
+        label = "Beefalo Mass",
+        hover = "How difficult bonded beefalo are to push around, or push others.",
+        options =
+        {
+            {description = "1", data = 1, hover = "Same as fruit flies, catcoons, and glommer."},
+            {description = "10", data = 10, hover = "Same as spider, tallbird, hounds, etc."},
+            {description = "30", data = 30, hover = ""},
+            {description = "50", data = 50, hover = "Same as pigs, merms, and pet lavae."},
+            {description = "70", data = 70, hover = ""},
+            {description = "Default", data = 0, hover = "100 when unmodded"},
         },
         default = 0,
     },

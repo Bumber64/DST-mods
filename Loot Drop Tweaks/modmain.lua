@@ -9,21 +9,19 @@ end
 -----------------------
 
 local function ensure_loot(ld, item, chance) --make sure lootdropper has item as chance loot with given minimum chance
-    local prob = _G.tonumber(chance) or 0.0
-
-    if not ld or prob <= 0.0 then
+    if not ld or chance <= 0.0 then
         return
     end
 
-    local shared_table = false --found in chanceloottable
-    local found_entry = nil
+    local shared_table --if found in chanceloottable
+    local found_entry
     local found_value = 0.0
 
     local lt = ld.chanceloottable and _G.LootTables[ld.chanceloottable] or nil
     if lt then
         for _, t in ipairs(lt) do
             if t[1] == item and t[2] > found_value then --better than previous
-                if t[2] >= prob then
+                if t[2] >= chance then
                     return --requirement satisfied
                 else
                     shared_table = true
@@ -37,10 +35,10 @@ local function ensure_loot(ld, item, chance) --make sure lootdropper has item as
     if ld.chanceloot then
         for _, t in pairs(ld.chanceloot) do
             if t.prefab == item and t.chance > found_value then --better than previous
-                if t.chance >= prob then
+                if t.chance >= chance then
                     return --requirement satisfied
                 else
-                    shared_table = false
+                    shared_table = nil
                     found_entry = t
                     found_value = t.chance
                 end
@@ -49,11 +47,22 @@ local function ensure_loot(ld, item, chance) --make sure lootdropper has item as
     end
 
     if shared_table then
-        found_entry[2] = prob --modify chanceloottable
+        found_entry[2] = chance --modify chanceloottable
     elseif found_entry then
-        found_entry.chance = prob --modify chanceloot
+        found_entry.chance = chance --modify chanceloot
     else
-        ld:AddChanceLoot(item, prob) --insert into chanceloot
+        ld:AddChanceLoot(item, chance) --insert into chanceloot
+    end
+end
+
+local function reduce_loot(ld, item, chance) --reduce chanceloot drop rate on first drop exceeding rate
+    if ld and ld.chanceloot and chance > 0 then
+        for _, t in pairs(ld.chanceloot) do
+            if t.prefab == item and t.chance > chance then --found one
+                t.chance = chance
+                return
+            end
+        end
     end
 end
 
@@ -87,29 +96,37 @@ if GetModConfigData("batilisk_wing") > 0.0 then
     end)
 end
 
-if GetModConfigData("bee_honey") > 0.0 then
+local honey_rate = GetModConfigData("bee_honey")
+local stinger_rate = GetModConfigData("bee_stinger")
+
+if honey_rate > 0.0 or stinger_rate > 0.0 then
     AddPrefabPostInit("bee", function(inst)
         local ld = inst.components.lootdropper
+
         convert_rand_loot(ld)
-        ensure_loot(ld, 'honey', GetModConfigData("bee_honey"))
+        ensure_loot(ld, 'honey', honey_rate)
+
+        reduce_loot(ld, 'stinger', stinger_rate)
     end)
 
     AddPrefabPostInit("killerbee", function(inst)
         local ld = inst.components.lootdropper
+
         convert_rand_loot(ld)
-        ensure_loot(ld, 'honey', GetModConfigData("bee_honey"))
+        ensure_loot(ld, 'honey', honey_rate)
+
+        reduce_loot(ld, 'stinger', stinger_rate)
     end)
 end
 
 if GetModConfigData("bird_morsel") > 0.0 or GetModConfigData("bird_feather") > 0.0 then
-    local BIRDFEATHERS = {crow = "feather_crow", puffin = "feather_crow", robin = "feather_robin", robin_winter = "feather_robin_winter"}
-    for k in pairs(BIRDFEATHERS) do
+    for k, v in pairs({crow = "feather_crow", puffin = "feather_crow", robin = "feather_robin", robin_winter = "feather_robin_winter"}) do
         AddPrefabPostInit(k, function(inst)
             local ld = inst.components.lootdropper
 
             convert_rand_loot(ld)
             ensure_loot(ld, 'smallmeat', GetModConfigData("bird_morsel"))
-            ensure_loot(ld, BIRDFEATHERS[inst.prefab], GetModConfigData("bird_feather"))
+            ensure_loot(ld, v, GetModConfigData("bird_feather"))
         end)
     end
 end
@@ -153,6 +170,16 @@ if GetModConfigData("bunnyman_carrot") > 0.0 or GetModConfigData("bunnyman_meat"
             ensure_loot(ld, 'meat', GetModConfigData("bunnyman_meat"))
             ensure_loot(ld, 'manrabbit_tail', GetModConfigData("bunnyman_tail"))
         end)
+    end)
+end
+
+if GetModConfigData("butterfly_butter") > 0.0 then
+    AddPrefabPostInit("butterfly", function(inst)
+        local ld = inst.components.lootdropper
+
+        convert_rand_loot(ld)
+        ensure_loot(ld, 'butterflywings', 1.0)
+        ensure_loot(ld, 'butter', GetModConfigData("butterfly_butter"))
     end)
 end
 
@@ -232,16 +259,35 @@ if GetModConfigData("pigman_meat") > 0.0 or GetModConfigData("pigman_skin") > 0.
     end)
 end
 
-if GetModConfigData("spider_silk") > 0.0 or GetModConfigData("spider_gland") > 0.0 then
+local silk_rate = GetModConfigData("spider_silk")
+local gland_rate = GetModConfigData("spider_gland")
+
+if silk_rate > 0.0 or gland_rate > 0.0 then
     for _, v in pairs({"spider", "spider_warrior", "spider_hider", "spider_spitter", "spider_dropper", "spider_moon", "spider_healer", "spider_water"}) do
         AddPrefabPostInit(v, function(inst)
             local ld = inst.components.lootdropper
 
             convert_rand_loot(ld)
-            ensure_loot(ld, 'silk', GetModConfigData("spider_silk"))
-            ensure_loot(ld, 'spidergland', GetModConfigData("spider_gland"))
+
+            if silk_rate >= 0.25 then
+                ensure_loot(ld, 'silk', silk_rate)
+            else
+                reduce_loot(ld, 'silk', silk_rate)
+            end
+
+            if gland_rate >= 0.25 then
+                ensure_loot(ld, 'spidergland', gland_rate)
+            else
+                reduce_loot(ld, 'spidergland', gland_rate)
+            end
         end)
     end
+end
+
+if GetModConfigData("slurperpelt") > 0.0 then
+    AddPrefabPostInit("slurper", function(inst)
+        ensure_loot(inst.components.lootdropper, 'slurper_pelt', GetModConfigData("slurperpelt"))
+    end)
 end
 
 if GetModConfigData("slurtle_helm") > 0.0 then

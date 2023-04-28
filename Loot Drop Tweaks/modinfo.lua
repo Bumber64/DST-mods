@@ -1,8 +1,8 @@
 
 name = "Loot Drop Tweaks"
-description = "Guarantees (or improves the chance of) certain drops from monsters. Configurable."
+description = "Adjust the drop rates of certain loot from monsters. Configurable."
 author = "Bumber"
-version = "1.11"
+version = "1.13"
 forumthread = ""
 
 icon_atlas = "modicon.xml"
@@ -35,31 +35,44 @@ configuration_options =
     {
         name = "bee_honey",
         label = "Bee Honey",
-        hover = "Honey drop rates (bee and killer bee)",
+        hover = "Honey drop rate (bee and killer bee)",
         options =   {
                         {description = "Default", data = 0.0, hover = "16.7% unless modded"},
                         {description = "50%", data = 0.5, hover = "This makes bee loot drop independently!"},
+                        {description = "75%", data = 0.75, hover = "This makes bee loot drop independently!"},
                         {description = "100%", data = 1.0, hover = "This makes bee loot drop independently!"},
+                    },
+        default = 0.0,
+    },
+    {
+        name = "bee_stinger",
+        label = "Bee Stinger",
+        hover = "Stinger drop rate (bee and killer bee)",
+        options =   {
+                        {description = "10% (reduced)", data = 0.1, hover = "This makes bee loot drop independently!"},
+                        {description = "25% (reduced)", data = 0.25, hover = "This makes bee loot drop independently!"},
+                        {description = "50% (reduced)", data = 0.5, hover = "This makes bee loot drop independently!"},
+                        {description = "Default", data = 0.0, hover = "83.3% unless modded"},
                     },
         default = 0.0,
     },
     {
         name = "bird_morsel",
         label = "Bird Morsel",
-        hover = "Morsel drop rates (crow, puffin, redbird, and snowbird)",
+        hover = "Morsel drop rate (crow, puffin, redbird, and snowbird)",
         options =   {
                         {description = "Default", data = 0.0, hover = "50% unless modded"},
-                        {description = "100%", data = 1.0, hover = "This makes (non-canary) bird loot drop independently!"},
+                        {description = "100%", data = 1.0, hover = "This makes the afforementioned birds' loot drop independently!"},
                     },
         default = 0.0,
     },
     {
         name = "bird_feather",
         label = "Bird Feather",
-        hover = "Feather drop rates (crow, puffin, redbird, and snowbird)",
+        hover = "Feather drop rate (crow, puffin, redbird, and snowbird)",
         options =   {
                         {description = "Default", data = 0.0, hover = "50% unless modded"},
-                        {description = "100%", data = 1.0, hover = "This makes (non-canary) bird loot drop independently!"},
+                        {description = "100%", data = 1.0, hover = "This makes the afforementioned birds' loot drop independently!"},
                     },
         default = 0.0,
     },
@@ -109,6 +122,20 @@ configuration_options =
                         {description = "50%", data = 0.5, hover = "This makes bunnyman loot drop independently!"},
                         {description = "75%", data = 0.75, hover = "This makes bunnyman loot drop independently!"},
                         {description = "100%", data = 1.0, hover = "This makes bunnyman loot drop independently!"},
+                    },
+        default = 0.0,
+    },
+    {
+        name = "butterfly_butter",
+        label = "Butterfly Butter",
+        hover = "Butter drop rate (butterfly)\n[Also: Butterfly wings drop rate 98% when Default, else 100%]",
+        options =   {
+                        {description = "Default", data = 0.0, hover = "2% unless modded"},
+                        {description = "10%", data = 0.1, hover = "This makes butterfly loot drop independently!"},
+                        {description = "25%", data = 0.25, hover = "This makes butterfly loot drop independently!"},
+                        {description = "50%", data = 0.5, hover = "This makes butterfly loot drop independently!"},
+                        {description = "75%", data = 0.75, hover = "This makes butterfly loot drop independently!"},
+                        {description = "100%", data = 1.0, hover = "This makes butterfly loot drop independently!"},
                     },
         default = 0.0,
     },
@@ -217,7 +244,6 @@ configuration_options =
                     },
         default = 0.0,
     },
-
     {
         name = "pigman_meat",
         label = "Pig Meat",
@@ -243,8 +269,10 @@ configuration_options =
     {
         name = "spider_silk",
         label = "Spider Silk",
-        hover = "Silk drop rates (all spider variants, excluding queen)",
+        hover = "Silk drop rate (all spider variants, excluding queen)",
         options =   {
+                        {description = "10% (reduced)", data = 0.1, hover = "This makes spider loot drop independently!"},
+                        {description = "15% (reduced)", data = 0.15, hover = "This makes spider loot drop independently!"},
                         {description = "Default", data = 0.0, hover = "25% unless modded"},
                         {description = "50%", data = 0.5, hover = "This makes spider loot drop independently!"},
                         {description = "75%", data = 0.75, hover = "This makes spider loot drop independently!"},
@@ -255,12 +283,25 @@ configuration_options =
     {
         name = "spider_gland",
         label = "Spider Glands",
-        hover = "Spider gland drop rates (all spider variants, excluding queen)",
+        hover = "Spider gland drop rate (all spider variants, excluding queen)",
         options =   {
+                        {description = "10% (reduced)", data = 0.1, hover = "This makes spider loot drop independently!"},
+                        {description = "15% (reduced)", data = 0.15, hover = "This makes spider loot drop independently!"},
                         {description = "Default", data = 0.0, hover = "25% unless modded"},
                         {description = "50%", data = 0.5, hover = "This makes spider loot drop independently!"},
                         {description = "75%", data = 0.75, hover = "This makes spider loot drop independently!"},
                         {description = "100%", data = 1.0, hover = "This makes spider loot drop independently!"},
+                    },
+        default = 0.0,
+    },
+    {
+        name = "slurperpelt",
+        label = "Slurper Pelt",
+        hover = "Slurper Pelt drop rate (slurper)",
+        options =   {
+                        {description = "Default", data = 0.0, hover = "50% unless modded"},
+                        {description = "75%", data = 0.75, hover = ""},
+                        {description = "100%", data = 1.0, hover = ""},
                     },
         default = 0.0,
     },
@@ -290,7 +331,7 @@ configuration_options =
     {
         name = "tentacle_spot",
         label = "Tentacle Spots",
-        hover = "Tentacle spots drop rates (tentacle and big tentacle)",
+        hover = "Tentacle spots drop rate (tentacle and big tentacle)",
         options =   {
                         {description = "Default", data = 0.0, hover = "20% (40% big) unless modded"},
                         {description = "50%", data = 0.5, hover = ""},

@@ -2,7 +2,7 @@
 name = "Loot Drop Tweaks"
 description = "Adjust the drop rates of certain loot from monsters. Configurable."
 author = "Bumber"
-version = "1.13"
+version = "1.14"
 forumthread = ""
 
 icon_atlas = "modicon.xml"
@@ -334,6 +334,18 @@ configuration_options =
         hover = "Tentacle spots drop rate (tentacle and big tentacle)",
         options =   {
                         {description = "Default", data = 0.0, hover = "20% (40% big) unless modded"},
+                        {description = "50%", data = 0.5, hover = ""},
+                        {description = "75%", data = 0.75, hover = ""},
+                        {description = "100%", data = 1.0, hover = ""},
+                    },
+        default = 0.0,
+    },
+    {
+        name = "voltgoat_horn",
+        label = "Volt Goat Horn",
+        hover = "Volt goat horn drop rate (volt goat)",
+        options =   {
+                        {description = "Default", data = 0.0, hover = "25% unless modded"},
                         {description = "50%", data = 0.5, hover = ""},
                         {description = "75%", data = 0.75, hover = ""},
                         {description = "100%", data = 1.0, hover = ""},

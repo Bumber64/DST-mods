@@ -311,3 +311,41 @@ if GetModConfigData("tentacle_spot") > 0.0 then
         ensure_loot(inst.components.lootdropper, 'tentaclespots', GetModConfigData("tentacle_spot"))
     end)
 end
+
+if GetModConfigData("voltgoat_horn") > 0.0 then
+    local do_horn = true
+
+    local function adjust_goat_horn() --adjust volt goat shared loot tables, only done once
+        if not do_horn then
+            return
+        end
+
+        local horn_rate = GetModConfigData("voltgoat_horn")
+
+        for _, t in ipairs(_G.LootTables['lightninggoat'] or {}) do
+            if t[1] == 'lightninggoathorn' then --found it
+                if t[2] < horn_rate then
+                    t[2] = horn_rate
+                end
+
+                break --one guarantee is sufficient
+            end
+        end
+
+        for _, t in ipairs(_G.LootTables['chargedlightninggoat'] or {}) do
+            if t[1] == 'lightninggoathorn' then
+                if t[2] < horn_rate then
+                    t[2] = horn_rate
+                end
+
+                break
+            end
+        end
+
+        do_horn = nil
+    end
+
+    AddPrefabPostInit("lightninggoat", function(inst)
+        adjust_goat_horn()
+    end)
+end

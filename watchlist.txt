@@ -61,7 +61,6 @@ prefabs/player_common.lua ------- FMBL
 prefabs/polly_rogers.lua -------- COMP
 prefabs/powdermonkey.lua -------- FMBL
 prefabs/rocky.lua --------------- COMP
-prefabs/shadow_container.lua ---- COMP
 prefabs/slurper.lua ------------- FMBL
 prefabs/smallbird.lua ----------- COMP
 prefabs/spider.lua -------------- COMP / SPDR

@@ -2,7 +2,7 @@
 name = "Improved Mushroom Planters"
 description = "Planted mushrooms don't turn into rot in winter, plus configurable options for fertilizers and moon shrooms."
 author = "Bumber"
-version = "1.6"
+version = "1.7"
 forumthread = ""
 
 icon_atlas = "modicon.xml"
@@ -10,7 +10,7 @@ icon = "modicon.tex"
 
 api_version = 10
 dst_compatible = true
-all_clients_require_mod = true
+all_clients_require_mod = false
 client_only_mod = false
 priority = 1
 
@@ -19,7 +19,7 @@ configuration_options =
     {
         name = "max_harvests",
         label = "Maximum Fertilization",
-        hover = "Maximum amount of fertilizer value the planter can store. Living logs restore this many harvests.",
+        hover = "Maximum amount of fertilizer value the planter can store.\nLiving logs restore this many harvests.",
         options =
         {
             {description = "Unlimited", data = -1, hover = "Default, but never decrease"},
@@ -53,20 +53,31 @@ configuration_options =
         default = false,
     },
     {
-        name = "moon_ok",
-        label = "Allow Moon Shrooms",
-        hover = "Should planters accept moon shrooms? Doesn't effect lunar spores.",
+        name = "spore_harvest",
+        label = "Release Spores on Harvest",
+        hover = "Option to release spores on player harvest instead of when finished growing\n(when grown from spores)",
         options =
         {
-            {description = "No", data = false, hover = "Don't accept moon shrooms"},
-            {description = "Yes", data = true, hover = "Accept moon shrooms"},
+            {description = "Default", data = false, hover = "Release ASAP on max size"},
+            {description = "On Harvest", data = true, hover = "Release only after harvesting"},
+        },
+        default = false,
+    },
+    {
+        name = "moon_ok",
+        label = "Everyone Plant Moon Shrooms",
+        hover = "Should planters accept moon shrooms from everyone?\nDoesn't effect lunar spores.",
+        options =
+        {
+            {description = "No", data = false, hover = "Only accept moon shrooms from Wormwood with appropriate skill"},
+            {description = "Yes", data = true, hover = "Accept moon shrooms from everyone"},
         },
         default = false,
     },
     {
         name = "moon_spore",
         label = "Catchable Lunar Spores",
-        hover = "Lunar spores can be caught with a bug net and used in a planter. What could go wrong?",
+        hover = "Lunar spores can be caught with a bug net and used in a planter.\nWhat could go wrong?",
         options =
         {
             {description = "No", data = false, hover = "Spores just explode, as usual"},

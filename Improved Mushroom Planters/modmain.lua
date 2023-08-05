@@ -1,7 +1,6 @@
 
 Assets =
 {
-    Asset("ANIM", "anim/mushroom_farm_moon_build.zip"),
     Asset("ATLAS", "images/inventoryimages/spore_moon.xml"),
 }
 
@@ -28,6 +27,7 @@ end
 local SNOW_GROW = GetModConfigData("snow_grow") --grow or pause in snow
 local MOON_OK = GetModConfigData("moon_ok") --allow growing moon shrooms
 local MOON_SPORE = GetModConfigData("moon_spore") --allow catching and planting lunar spores
+local SPORE_HARVEST = GetModConfigData("spore_harvest") --wait until player harvests
 
 local fert_values =
 {
@@ -157,16 +157,28 @@ local function my_updatelevel(inst, dotransition) --keep growing when snowy if S
     end
 end
 
-local function my_onharvest(inst, picker) --support unlimited harvests
+local function my_onharvest(inst, picker, produce) --support unlimited harvests
     if inst:HasTag("burnt") then
         return
     elseif MAX_HARVESTS >= 0 then
         inst.remainingharvests = inst.remainingharvests - 1
     end
+
+    if SPORE_HARVEST and produce == levels[1].amount then --do spore release here
+        if math.random() <= TUNING.MUSHROOMFARM_SPAWN_SPORE_CHANCE then
+            for k, v in pairs(spore_to_cap) do
+                if v == inst.components.harvestable.product then
+                    inst.components.lootdropper:SpawnLootPrefab(k)
+                    break
+                end
+            end
+        end
+    end
+
     my_updatelevel(inst)
 end
 
-local function my_accepttest(inst, item) --accept items in fert_values, accept moonmushroom if MOON_OK
+local function my_accepttest(inst, item, giver) --accept items in fert_values, accept moonmushroom if MOON_OK
     if item == nil then
         return false
     elseif inst.remainingharvests == 0 and not fert_values[item.prefab] then --only accepting fertilizer
@@ -175,10 +187,20 @@ local function my_accepttest(inst, item) --accept items in fert_values, accept m
         return true
     elseif not (item:HasTag("mushroom") or item:HasTag("spore")) then --only mushrooms and spores past this point
         return false, "MUSHROOMFARM_NEEDSSHROOM"
-    elseif not MOON_OK and item:HasTag("moonmushroom") then --check if we grow moon shrooms
-        return false, "MUSHROOMFARM_NOMOONALLOWED"
+    elseif item:HasTag("moonmushroom") then --check if we grow moon shrooms
+        if MOON_OK then
+            return true
+        end
+
+        local grower_skilltreeupdater = giver.components.skilltreeupdater
+        if grower_skilltreeupdater and grower_skilltreeupdater:IsActivated("wormwood_moon_cap_eating") then
+            return true
+        else
+            return false, "MUSHROOMFARM_NOMOONALLOWED"
+        end
+    else
+        return true
     end
-    return true
 end
 
 local function my_onacceptitem(inst, giver, item) --apply fert value; handle item removal
@@ -210,6 +232,10 @@ end
 ----------------- Finally -----------------
 -------------------------------------------
 
+local function my_ongrow(inst, produce) --don't release spores
+    my_updatelevel(inst, true)
+end
+
 local function my_onsnowcoveredchanged(inst, covered)
     if inst.components.harvestable then
         my_updatelevel(inst)
@@ -233,7 +259,11 @@ end
 
 AddPrefabPostInit("mushroom_farm", function(inst)
     if find_mfarm_upvalues(inst) then
-        UpvalueHacker.SetUpvalue(inst.components.harvestable.ongrowfn, my_updatelevel, "updatelevel")
+        if SPORE_HARVEST then
+            inst.components.harvestable:SetOnGrowFn(my_ongrow)
+        else
+            UpvalueHacker.SetUpvalue(inst.components.harvestable.ongrowfn, my_updatelevel, "updatelevel")
+        end
 
         if inst.components.burnable.onignite then --someone might remove onignite to protect mushrooms
             UpvalueHacker.SetUpvalue(inst.components.burnable.onignite, my_updatelevel, "updatelevel")

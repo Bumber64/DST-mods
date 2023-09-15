@@ -2,7 +2,7 @@
 name = "Companion Configurator" --formerly "Invincible Friendly Fruit Fly"
 description = "Modify follower mass, remove loyalty loss, and make them not trigger traps. Make non-combat followers invincible or non-targetable."
 author = "Bumber"
-version = "2.5"
+version = "2.6"
 forumthread = ""
 
 icon_atlas = "modicon.xml"
@@ -280,17 +280,6 @@ configuration_options =
         {
             {description = "Suspend", data = 0, hover = "Temporarily disable while mounted."},
             {description = "Always On", data = 1, hover = "Apply even while mounted. Player recieves mounted damage."},
-        },
-        default = 0,
-    },
-    {
-        name = "beefalo_notrap",
-        label = "Beefalo No Trap Trigger",
-        hover = "Should bonded beefalo trigger traps?",
-        options =
-        {
-            {description = "Default", data = 0, hover = "All beefalo will trigger traps."},
-            {description = "Don't Trigger", data = 1, hover = "Bonded beefalo won't trigger traps."},
         },
         default = 0,
     },

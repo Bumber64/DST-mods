@@ -37,7 +37,6 @@ local cfg =
 
     BEEFALO_HEALTH = GetModConfigData("beefalo_health"), --0:Default, 1:10k, 2:InstantRegen, 3:Invincible
     BEEFALO_NOTARGET = GetModConfigData("beefalo_notarget"), --0:Default, 1:notarget
-    BEEFALO_NOTRAP = GetModConfigData("beefalo_notrap"), --0:Default, 1:notraptrigger
     BEEFALO_MASS = GetModConfigData("beefalo_mass"), --0:Default
     BEEFALO_RIDE = GetModConfigData("beefalo_ride"), --0:Suspend, 1:Enabled
 
@@ -286,7 +285,7 @@ end
 ---------------- Beefalo ---------------
 ----------------------------------------
 
-if cfg.BEEFALO_HEALTH > 0 or cfg.BEEFALO_NOTARGET > 0 or cfg.BEEFALO_NOTRAP > 0 or cfg.BEEFALO_MASS > 0 then
+if cfg.BEEFALO_HEALTH > 0 or cfg.BEEFALO_NOTARGET > 0 or cfg.BEEFALO_MASS > 0 then
     local function beef_enable(inst, enable)
         local c = (cfg.BEEFALO_HEALTH > 0 or cfg.BEEFALO_NOTARGET > 0) and inst.components.combat
 
@@ -310,10 +309,6 @@ if cfg.BEEFALO_HEALTH > 0 or cfg.BEEFALO_NOTARGET > 0 or cfg.BEEFALO_NOTRAP > 0 
                 inst:AddTag("notarget")
             end
 
-            if cfg.BEEFALO_NOTRAP > 0 then
-                inst:AddTag("notraptrigger")
-            end
-
             if cfg.BEEFALO_MASS > 0 then
                 inst.Physics:SetMass(cfg.BEEFALO_MASS)
             end
@@ -334,10 +329,6 @@ if cfg.BEEFALO_HEALTH > 0 or cfg.BEEFALO_NOTARGET > 0 or cfg.BEEFALO_NOTRAP > 0 
 
             if cfg.BEEFALO_NOTARGET > 0 then
                 inst:RemoveTag("notarget")
-            end
-
-            if cfg.BEEFALO_NOTRAP > 0 then
-                inst:RemoveTag("notraptrigger")
             end
 
             if cfg.BEEFALO_MASS > 0 then
@@ -676,7 +667,7 @@ if cfg.PIGMERMBUN_NOTRAP > 0 or cfg.PIGMERMBUN_LOYALTY > 0 or cfg.PIGMERMBUN_DEA
 
     if cfg.PIGMERMBUN_DEADLEADER > 0 and cfg.FOLLOW_GHOST == 0 then
         AddBrainPostInit("pigbrain", function(self)
-            local node = self.bt.root.children[13]
+            local node = self.bt.root.children[14]
             if node and node.children then
                 node = node.children[2]
             end

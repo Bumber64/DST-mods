@@ -9,8 +9,6 @@ local EQUIPSLOTS = _G.EQUIPSLOTS
 local ACTIONS = _G.ACTIONS
 local BufferedAction = _G.BufferedAction
 
-local UpvalueHacker = require("tools/upvaluehacker") --Rezecib's upvalue hacker
-
 local function modprint(s)
     print("[Don't Fumble] "..s)
 end
@@ -22,36 +20,72 @@ local function is_player_follower(inst)
     return f and f.leader and (f.leader.components.inventoryitem or f.leader:HasTag("player"))
 end
 
+local HackUtil = require("tools/hackutil")
+
 -------------------------------------------
 ---------------- Settings -----------------
 -------------------------------------------
 
-local cfg =
+local cfg_name =
 {
-    ALL_NOFUMBLE = GetModConfigData("all_nofumble"), --0:Default, 1:stronggrip
-    WET_NOFUMBLE = GetModConfigData("wet_nofumble"), --0:Default, 1:Tools, 2:Drown
-    CUTLESS_NOSTEAL = GetModConfigData("cutless_nosteal"), --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
-    CUTLESS_PLAYER = GetModConfigData("cutless_player"), --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
+    "all_nofumble", --0:Default, 1:stronggrip
+    "wet_nofumble", --0:Default, 1:Tools, 2:Drown
+    "cutless_nosteal", --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
+    "cutless_player", --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
 
-    MOOSE_NOFUMBLE = GetModConfigData("moose_nofumble"), --0:Default, 1:NoFumble
+    "moose_nofumble", --0:Default, 1:NoFumble
 
-    BEARGER_NOFUMBLE = GetModConfigData("bearger_nofumble"), --0:Default, 1:NoFumble
-    BEARGER_NOSMASH = GetModConfigData("bearger_nosmash"), --0:Default, 1:Containers, 2:Trampling, 3:Beehives
-    BEARGER_NOSTEAL = GetModConfigData("bearger_nosteal"), --0:Default, 1:Containers, 2:Structures, 3:Pickables
+    "bearger_nofumble", --0:Default, 1:NoFumble
+    "bearger_nosmash", --0:Default, 1:Containers, 2:Trampling, 3:Beehives
+    "bearger_nosteal", --0:Default, 1:Containers, 2:Structures, 3:Pickables
 
-    FROG_NOSTEAL = GetModConfigData("frog_nosteal"), --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
+    "frog_nosteal", --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
 
-    PMONKEY_NOSMASH = GetModConfigData("pmonkey_nosmash"), --0:Default, 1:Mast, 2:NoEmptyChest, 3:NoTinker
-    PMONKEY_NOSTEAL = GetModConfigData("pmonkey_nosteal"), --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
-    PMONKEY_NOSTEAL_GROUND = GetModConfigData("pmonkey_nosteal_ground"), --0:Default, 1:NoWearHat, 2:Misc, 3:Bananas
+    "pmonkey_nosmash", --0:Default, 1:Mast, 2:NoEmptyChest, 3:NoTinker
+    "pmonkey_nosteal", --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
+    "pmonkey_nosteal_ground", --0:Default, 1:NoWearHat, 2:Misc, 3:Bananas
 
-    SLURPER_NOSTEAL = GetModConfigData("slurper_nosteal"), --0:Default, 1:Unequip, 2:Protect
+    "slurper_nosteal", --0:Default, 1:Unequip, 2:Protect
 
-    SLURTLE_NOSTEAL = GetModConfigData("slurtle_nosteal"), --0:Default, 1:Containers, 2:Players
+    "slurtle_nosteal", --0:Default, 1:Containers, 2:Players
 
-    SPLUMONKEY_NOCHEST = GetModConfigData("splumonkey_nochest"), --0:Default, 1:Containers
-    SPLUMONKEY_NOSTEAL = GetModConfigData("splumonkey_nosteal"), --0:Default, 1:Misc, 2:Hats, 3:Pickables, 4:Food
+    "splumonkey_nochest", --0:Default, 1:Containers
+    "splumonkey_nosteal", --0:Default, 1:Misc, 2:Hats, 3:Pickables, 4:Food
 }
+
+local cfg = {}
+for _, s in ipairs(cfg_name) do
+    local n = GetModConfigData(s)
+    cfg[string.upper(s)] = type(n) == "number" and n or 0
+end
+
+local cfg_name = nil --don't need table anymore
+
+-------------------------------------------
+------------------ Debug ------------------
+-------------------------------------------
+
+--[[
+Fixing misaligned brains:
+1. Uncomment variables "_G.brain_exam" and "_G.surgery_table" to enable those functions in console.
+2. Run "brain_exam(c_select())" on desired creature. Brain takes time to start, so don't use "brain_exam(c_spawn("bearger")".
+
+3. Compare result with existing surgery table (e.g., "bearger_surgery".)
+   Refer to Klei's creature's brain script (e.g., "/scripts/brains/beargerbrain.lua") for actual getactionfn names.
+
+4. For each "fn" entry in the old surgery table, copy everything between "fn = " and the next "}" and enclose in quotes
+   (e.g., "empty_fn, cond = function() return cfg.BEARGER_NOSMASH > 2 end")
+   and then give the numbered path (from brain_exam output, excluding the root "R")
+   that leads to the getactionfn it should replace. Each one of these goes in a table
+   (e.g., {1,2,7,"empty_fn, cond = function() return cfg.BEARGER_NOSMASH > 2 end"})
+   and then all those go in a table that can be passed as the second argument to surgery_table.
+
+5. Finally, run "surgery_table(c_select(), {your table from step 4})" on the creature
+   and copy the printed surgery table from the log. Replace the existing table (e.g., "bearger_surgery") with it.
+--]]
+
+--_G.surgery_table = HackUtil.surgery_table
+--_G.brain_exam = HackUtil.brain_exam
 
 -------------------------------------------
 ----------------- General -----------------
@@ -77,7 +111,7 @@ if cfg.WET_NOFUMBLE > 0 then
             return
         end
 
-        local DWT_INDEX = 1 --DropWetTool should be at this index in OnAttackOther, don't search entire function
+        local DWT_INDEX = 1 --DropWetTool should be at this index in OnAttackOther, don't search entire functions
         for _, fn in ipairs(t) do
             local name, val = _G.debug.getupvalue(fn, DWT_INDEX)
             if name and name == "DropWetTool" then
@@ -179,34 +213,37 @@ if cfg.BEARGER_NOFUMBLE > 0 or cfg.BEARGER_NOSMASH > 1 then
     end
 
     AddPrefabPostInit("bearger", function(inst)
-        if cfg.BEARGER_NOFUMBLE > 0 then --prevent fumbling from swipe attack
-            modprint("Upvalue hacking Prefabs.bearger.fn -> OnHitOther")
-            local OnHitOther = UpvalueHacker.GetUpvalue(_G.Prefabs.bearger.fn, "OnHitOther")
-            if OnHitOther then
-                inst:RemoveEventCallback("onhitother", OnHitOther)
-            else
-                modprint("Prefabs.bearger.fn -> OnHitOther not found!")
-            end
-        end
+        local my_commonfn, err_msg = HackUtil.GetUpvalue(_G.Prefabs.bearger.fn, "commonfn")
 
-        if cfg.BEARGER_NOSMASH > 1 then --Trampling
-            if my_OnDestroyOther == nil then
-                modprint("Upvalue hacking Prefabs.bearger.fn -> OnCollide -> OnDestroyOther")
-                local collide = UpvalueHacker.GetUpvalue(_G.Prefabs.bearger.fn, "OnCollide")
-                if collide then
-                    my_OnDestroyOther = UpvalueHacker.GetUpvalue(collide, "OnDestroyOther")
-                end
-                if not my_OnDestroyOther then
-                    modprint("Prefabs.bearger.fn -> OnCollide -> OnDestroyOther not found!")
-                    my_OnDestroyOther = false --skip future hacking
+        if my_commonfn then
+            if cfg.BEARGER_NOFUMBLE > 0 then --prevent fumbling from swipe attack
+                local OnHitOther, err_msg = HackUtil.GetUpvalue(my_commonfn, "OnHitOther")
+
+                if OnHitOther then
+                    inst:RemoveEventCallback("onhitother", OnHitOther)
+                else
+                    modprint("Prefabs.bearger.fn -> commonfn"..err_msg)
                 end
             end
 
-            if my_OnDestroyOther then
-                inst.Physics:SetCollisionCallback(OnCollide)
-            else
-                modprint("Bearger OnDestroyOther not found. Don't change collision callback.")
+            if cfg.BEARGER_NOSMASH > 1 then --Trampling
+                if my_OnDestroyOther == nil then
+                    my_OnDestroyOther, err_msg = HackUtil.GetUpvalue(my_commonfn, "OnCollide", "OnDestroyOther")
+
+                    if not my_OnDestroyOther then
+                        modprint("Prefabs.bearger.fn -> commonfn"..err_msg)
+                        my_OnDestroyOther = false --skip future hacking
+                    end
+                end
+
+                if my_OnDestroyOther then
+                    inst.Physics:SetCollisionCallback(OnCollide)
+                else
+                    modprint("Bearger's OnDestroyOther not found. Don't change collision callback.")
+                end
             end
+        else
+            modprint("Prefabs.bearger.fn"..err_msg)
         end
     end)
 end
@@ -233,7 +270,7 @@ if cfg.BEARGER_NOSTEAL > 0 or cfg.BEARGER_NOSMASH > 0 then
     local PICKABLE_FOODS = {berries = true, cave_banana = true, carrot = true, red_cap = true, blue_cap = true, green_cap = true}
 
     local function StealFoodAction(inst) --limit actions based on config, allow stealing from chests instead of hammering
-        if inst.sg:HasStateTag("busy") or (inst.components.inventory and inst.components.inventory:IsFull()) then
+        if inst.sg:HasStateTag("busy") or inst.components.inventory == nil or inst.components.inventory:IsFull()then
             return
         end
 
@@ -328,35 +365,27 @@ if cfg.BEARGER_NOSTEAL > 0 or cfg.BEARGER_NOSMASH > 0 then
         end
     end
 
-    AddBrainPostInit("beargerbrain", function(self) --has 2 DoAction nodes for stealing, 1 for attacking beehives
-        local node = self.bt.root.children
-        if node[7] and node[7].name == "AttackHive" then --easy way to check node alignment
-            if cfg.BEARGER_NOSMASH > 2 then --0:Default, 1:Containers, 2:CalmWalk, 3:Beehives
-                node[7].getactionfn = empty_fn
-            end
+    --Table generated using surgery_table() function
+    local bearger_surgery =
+    {name = "Priority", child =
+        {num = 1, name = "Parallel", child =
+            {num = 2, name = "Priority", children =
+                {{num = 4, name = "Parallel", child =
+                    {num = 2, name = "Priority", child =
+                        {num = 2, name = "DoAction", fn = StealFoodAction}
+                    }
+                },
+                {num = 6, name = "DoAction", fn = StealFoodAction},
+                {num = 7, name = "AttackHive", fn = empty_fn, cond = function() return cfg.BEARGER_NOSMASH > 2 end}}
+            }
+        }
+    }
 
-            if node[6] and node[6].name == "DoAction" then
-                node[6].getactionfn = StealFoodAction
-
-                node = node[4]
-                if node and node.children then
-                    node = node.children[2]
-                end
-                if node and node.children then
-                    node = node.children[2]
-                end
-                if node and node.name == "DoAction" then
-                    node.getactionfn = StealFoodAction
-                else
-                    modprint("Bearger brain surgery #3 failed!")
-                end
-            else
-                modprint("Bearger brain surgery #2 failed!")
-            end
-        else
-            modprint("Bearger brain surgery #1 failed!")
+    AddBrainPostInit("beargerbrain", function(self)
+        local err_msg = HackUtil.perform_surgery(self.bt.root, bearger_surgery)
+        if err_msg then
+            modprint(err_msg)
         end
-        node = nil
     end)
 end
 
@@ -390,7 +419,7 @@ end
 if cfg.PMONKEY_NOSTEAL_GROUND == 1 then --0:Default, 1:NoWearHat, 2:Misc, 3:Bananas
     AddPrefabPostInit("powder_monkey", function(inst) --don't equip hats that we pick up
         modprint("Upvalue hacking Prefabs.powder_monkey.fn -> OnPickup")
-        local OnPickup = UpvalueHacker.GetUpvalue(_G.Prefabs.powder_monkey.fn, "OnPickup")
+        local OnPickup = HackUtil.GetUpvalue(_G.Prefabs.powder_monkey.fn, "OnPickup")
         if OnPickup then
             inst:RemoveEventCallback("onpickupitem", OnPickup)
         else
@@ -547,32 +576,19 @@ if cfg.PMONKEY_NOSMASH > 0 or cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GRO
         inst.nothingtosteal = true
     end
 
-    local function pmonkey_surgery(root)
-        if cfg.PMONKEY_NOSMASH > 0 then
-            local node = root.children[11]
-            if node and node.name == "tinker" then
-                node.getactionfn = DoTinker
-            else
-                modprint("Powder monkey brain surgery #1 failed!")
-                return
-            end
-        end
-
-        if cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GROUND > 1 or cfg.PMONKEY_NOSMASH > 1 then
-            local node = root.children[14]
-            if node and node.children and node.name == "ChattyNode" then
-                node = node.children[1]
-            end
-            if node and node.name == "steal" then
-                node.getactionfn = ShouldSteal
-            else
-                modprint("Powder monkey brain surgery #2 failed!")
-            end
-        end
-    end
+    local powder_monkey_surgery =
+    {name = "Priority", children =
+        {{num = 11, name = "tinker", fn = DoTinker},
+        {num = 14, name = "ChattyNode", child =
+            {num = 1, name = "steal", fn = ShouldSteal}
+        }}
+    }
 
     AddBrainPostInit("powdermonkeybrain", function(self)
-        pmonkey_surgery(self.bt.root)
+        local err_msg = HackUtil.perform_surgery(self.bt.root, powder_monkey_surgery)
+        if err_msg then
+            modprint(err_msg)
+        end
     end)
 end
 
@@ -678,24 +694,24 @@ if cfg.SLURTLE_NOSTEAL > 0 then
         end
     end
 
+    local slurtle_surgery =
+    {name = "Priority", child =
+        {num = 5, name = "DoAction", fn = StealFoodAction}
+    }
+
     AddBrainPostInit("slurtlebrain", function(self)
-        local node = self.bt.root.children[5]
-        if node and node.name == "DoAction" then
-            node.getactionfn = StealFoodAction
-        else
-            modprint("Slurtle brain surgery failed!")
+        local err_msg = HackUtil.perform_surgery(self.bt.root, slurtle_surgery)
+        if err_msg then
+            modprint(err_msg)
         end
-        node = nil
     end)
 
+    --Reuse table since snurtle's brain layout is almost identical to slurtle's
     AddBrainPostInit("slurtlesnailbrain", function(self)
-        local node = self.bt.root.children[5]
-        if node and node.name == "DoAction" then
-            node.getactionfn = StealFoodAction
-        else
-            modprint("Snurtle brain surgery failed!")
+        local err_msg = HackUtil.perform_surgery(self.bt.root, slurtle_surgery)
+        if err_msg then
+            modprint(err_msg)
         end
-        node = nil
     end)
 end
 
@@ -785,108 +801,117 @@ if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_NOCHEST > 0 then
         inst.canlootchests = true
     end
 
-    local ANNOY_ONEOF_TAGS = { "_inventoryitem", "_container" }
-    local ANNOY_ALT_MUST_TAG = { "_inventoryitem" }
-    local function AnnoyLeader(inst) --limit targets based on config
-        if inst.sg:HasStateTag("busy") then
+    local AnnoyLeader = empty_fn
+
+    if cfg.SPLUMONKEY_NOCHEST == 0 or cfg.SPLUMONKEY_NOSTEAL == 0 then --allow some stealing
+        local ANNOY_ONEOF_TAGS = { "_inventoryitem", "_container" }
+        local ANNOY_ALT_MUST_TAG = { "_inventoryitem" }
+
+        AnnoyLeader = function(inst) --limit targets based on config
+            if inst.sg:HasStateTag("busy") then
+                return
+            end
+
+            local lootchests = cfg.SPLUMONKEY_NOCHEST == 0 and inst.canlootchests ~= false
+            local px, py, pz = inst.harassplayer.Transform:GetWorldPosition()
+            local mx, my, mz = inst.Transform:GetWorldPosition()
+            local ents = lootchests and TheSim:FindEntities(mx, 0, mz, 30, nil, NO_LOOTING_TAGS, ANNOY_ONEOF_TAGS) or
+                TheSim:FindEntities(mx, 0, mz, 30, ANNOY_ALT_MUST_TAG, NO_PICKUP_TAGS)
+
+            if cfg.SPLUMONKEY_NOSTEAL == 0 then --Misc not protected
+                for i, v in ipairs(ents) do --recent drops
+                    if v.components.inventoryitem and
+                        v.components.inventoryitem.canbepickedup and
+                        v.components.container == nil and
+                        v:GetTimeAlive() < 5 then
+                            return BufferedAction(inst, v, ACTIONS.PICKUP)
+                    end
+                end
+
+                local ba = inst.harassplayer:GetBufferedAction()
+                if ba and ba.action.id == "PICKUP" then --targeted item
+                    local tar = ba.target
+                    if tar and tar:IsValid() and tar.components.inventoryitem and not tar.components.inventoryitem:IsHeld() and
+                        tar.components.container == nil and not (tar:HasTag("irreplaceable") or tar:HasTag("heavy") or tar:HasTag("outofreach")) and
+                        not (tar.components.burnable and tar.components.burnable:IsBurning()) and
+                        not (tar.components.projectile and tar.components.projectile.cancatch and tar.components.projectile.target) then
+                            local tx, ty, tz = tar.Transform:GetWorldPosition()
+                            return _G.distsq(px, pz, tx, tz) > _G.distsq(mx, mz, tx, tz) and BufferedAction(inst, tar, ACTIONS.PICKUP) or nil
+                    end
+                end
+            end
+
+            if lootchests then
+                local items = {}
+                for i, v in ipairs(ents) do
+                    if v.components.container and
+                        v.components.container.canbeopened and
+                        not v.components.container:IsOpen() and
+                        v:GetDistanceSqToPoint(px, 0, pz) < 225 then
+                            for k = 1, v.components.container.numslots do
+                                local item = v.components.container.slots[k]
+                                if item then
+                                    table.insert(items, item)
+                                end
+                            end
+                    end
+                end
+
+                if #items > 0 then
+                    inst.canlootchests = false
+                    if inst._canlootcheststask then
+                        inst._canlootcheststask:Cancel()
+                    end
+
+                    inst._canlootcheststask = inst:DoTaskInTime(math.random(15, 30), OnLootingCooldown)
+                    local item = items[math.random(#items)]
+                    local act = BufferedAction(inst, item, ACTIONS.STEAL)
+                    act.validfn = function()
+                        local owner = item.components.inventoryitem and item.components.inventoryitem.owner or nil
+                        return owner and
+                            not (owner.components.inventoryitem and owner.components.inventoryitem:IsHeld()) and
+                            not (owner.components.burnable and owner.components.burnable:IsBurning()) and
+                            owner.components.container and owner.components.container.canbeopened and
+                            not owner.components.container:IsOpen()
+                    end
+                    return act
+                end
+            end
+        end
+    end
+
+    local function monkeybrain_check(root) --double check some nodes because monkey has flat brain
+        local node = root.children and root.children[6]
+        node = node and node.children and node.children[1]
+        node = node and node.name and node.name == "Should Eat"
+        if not node then
             return
         end
 
-        local lootchests = cfg.SPLUMONKEY_NOCHEST == 0 and inst.canlootchests ~= false
-        local px, py, pz = inst.harassplayer.Transform:GetWorldPosition()
-        local mx, my, mz = inst.Transform:GetWorldPosition()
-        local ents = lootchests and TheSim:FindEntities(mx, 0, mz, 30, nil, NO_LOOTING_TAGS, ANNOY_ONEOF_TAGS) or
-            TheSim:FindEntities(mx, 0, mz, 30, ANNOY_ALT_MUST_TAG, NO_PICKUP_TAGS)
-
-        if cfg.SPLUMONKEY_NOSTEAL == 0 then --Misc not protected
-            for i, v in ipairs(ents) do --recent drops
-                if v.components.inventoryitem and
-                    v.components.inventoryitem.canbepickedup and
-                    v.components.container == nil and
-                    v:GetTimeAlive() < 5 then
-                        return BufferedAction(inst, v, ACTIONS.PICKUP)
-                end
-            end
-
-            local ba = inst.harassplayer:GetBufferedAction()
-            if ba and ba.action.id == "PICKUP" then --targeted item
-                local tar = ba.target
-                if tar and tar:IsValid() and tar.components.inventoryitem and not tar.components.inventoryitem:IsHeld() and
-                    tar.components.container == nil and not (tar:HasTag("irreplaceable") or tar:HasTag("heavy") or tar:HasTag("outofreach")) and
-                    not (tar.components.burnable and tar.components.burnable:IsBurning()) and
-                    not (tar.components.projectile and tar.components.projectile.cancatch and tar.components.projectile.target) then
-                        local tx, ty, tz = tar.Transform:GetWorldPosition()
-                        return _G.distsq(px, pz, tx, tz) > _G.distsq(mx, mz, tx, tz) and BufferedAction(inst, tar, ACTIONS.PICKUP) or nil
-                end
-            end
-        end
-
-        if lootchests then
-            local items = {}
-            for i, v in ipairs(ents) do
-                if v.components.container and
-                    v.components.container.canbeopened and
-                    not v.components.container:IsOpen() and
-                    v:GetDistanceSqToPoint(px, 0, pz) < 225 then
-                        for k = 1, v.components.container.numslots do
-                            local item = v.components.container.slots[k]
-                            if item then
-                                table.insert(items, item)
-                            end
-                        end
-                end
-            end
-
-            if #items > 0 then
-                inst.canlootchests = false
-                if inst._canlootcheststask then
-                    inst._canlootcheststask:Cancel()
-                end
-
-                inst._canlootcheststask = inst:DoTaskInTime(math.random(15, 30), OnLootingCooldown)
-                local item = items[math.random(#items)]
-                local act = BufferedAction(inst, item, ACTIONS.STEAL)
-                act.validfn = function()
-                    local owner = item.components.inventoryitem and item.components.inventoryitem.owner or nil
-                    return owner and
-                        not (owner.components.inventoryitem and owner.components.inventoryitem:IsHeld()) and
-                        not (owner.components.burnable and owner.components.burnable:IsBurning()) and
-                        owner.components.container and owner.components.container.canbeopened and
-                        not owner.components.container:IsOpen()
-                end
-                return act
-            end
-        end
+        node = root.children and root.children[9]
+        node = node and node.children and node.children[1]
+        node = node and node.name and node.name == "Annoy Leader"
+        return node
     end
 
-    local function splumonkey_surgery(root)
-        if cfg.SPLUMONKEY_NOSTEAL > 0 then
-            local node = root.children[6]
-            if node and node.children and node.children[1] and node.children[2] and
-                node.children[1].name == "Should Eat" and
-                node.children[2].name == "DoAction" then
-                    node.children[2].getactionfn = EatFoodAction
-            else
-                modprint("Splumonkey brain surgery #1 failed!")
-                return
-            end
-        end
-
-        local node = root.children[9]
-        if node and node.children and node.children[1] and node.children[2] and
-            node.children[1].name == "Annoy Leader" and
-            node.children[2].name == "DoAction" then
-                if cfg.SPLUMONKEY_NOCHEST == 0 or cfg.SPLUMONKEY_NOSTEAL == 0 then
-                    node.children[2].getactionfn = AnnoyLeader
-                else --no looting chests or stealing misc items
-                    node.children[2].getactionfn = empty_fn
-                end
-        else
-            modprint("Splumonkey brain surgery #2 failed!")
-        end
-    end
+    local monkey_surgery =
+    {name = "Priority", children =
+        {{num = 6, name = "Parallel", child =
+            {num = 2, name = "DoAction", fn = EatFoodAction, cond = function() return cfg.SPLUMONKEY_NOSTEAL > 0 end}
+        },
+        {num = 9, name = "Parallel", child =
+            {num = 2, name = "DoAction", fn = AnnoyLeader}
+        }}
+    }
 
     AddBrainPostInit("monkeybrain", function(self)
-        splumonkey_surgery(self.bt.root)
+        if monkeybrain_check(self.bt.root) then
+            local err_msg = HackUtil.perform_surgery(self.bt.root, monkey_surgery)
+            if err_msg then
+                modprint(err_msg)
+            end
+        else
+            modprint("Splumonkey brain surgery failed pre-check!")
+        end
     end)
 end

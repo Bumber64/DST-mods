@@ -365,7 +365,7 @@ if cfg.BEARGER_NOSTEAL > 0 or cfg.BEARGER_NOSMASH > 0 then
         end
     end
 
-    --Table generated using surgery_table() function
+    --Table generated using surgery_table function
     local bearger_surgery =
     {name = "Priority", child =
         {num = 1, name = "Parallel", child =

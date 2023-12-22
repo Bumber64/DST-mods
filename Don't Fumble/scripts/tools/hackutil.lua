@@ -100,28 +100,33 @@ end
 local table_string = HackUtil.table_string --local copy for convenience
 
 --Helper fn for HackUtil.brain_exam
-local function examine_nodes(node, path)
-    local s = ""
-    for k, v in ipairs(node.children or {}) do
-        s = s..examine_nodes(v, path..", "..tostring(k))
+local function examine_nodes(node, path, look_for)
+    local node_s = path..": \""..tostring(node.name).."\""
+    for _, v in ipairs(look_for or {}) do
+        node_s = node_s..(node[v] and (" | %s = (%s)"):format(tostring(v), tostring(node[v])) or "")
     end
 
-    return path..": \""..tostring(node.name).."\""..(node.getactionfn and " | getactionfn = ("..tostring(node.getactionfn)..")\n" or "\n")..s
+    local child_s = "\n"
+    for k, v in ipairs(node.children or {}) do
+        child_s = child_s..examine_nodes(v, path..", "..tostring(k), look_for)
+    end
+
+    return node_s..child_s
 end
 
---Neater and more info than print(self.brain)
---Usage: brain_exam(c_select()) --from console after setting GLOBAL.brain_exam to this fn
-function HackUtil.brain_exam(self)
+--Neater and displays more info than print(self.brain); look_for table defines node keys (besides node.name) to look for and print the key-value pair
+--Usage: brain_exam(c_select(), {"getactionfn"}) --from console after setting GLOBAL.brain_exam to this fn
+function HackUtil.brain_exam(self, look_for)
     if self and self.brain and self.brain.bt and self.brain.bt.root then
-        print("\nBehaviour nodes for ("..tostring(self.prefab).."):\n"..examine_nodes(self.brain.bt.root, "R"))
+        print("\nBehaviour nodes for ("..tostring(self.prefab).."):\n"..examine_nodes(self.brain.bt.root, "R", look_for))
     end
 end
 
 --Helper fn for HackUtil.surgery_table
 --Key on node number and combine redundant paths (for more compact surgery table.)
 --WARNING: input table t not preserved, don't use it after calling!
---Sample input: {{1, 2, 4, 2, 2, "StealFoodAction"}, {1, 2, 6, "StealFoodAction"}, {1, 2, 7, "empty_fn, cond = function() return cfg.BEARGER_NOSMASH > 2 end"}}
---Sample output: {1 = {2 = {4 = {2 = {2 = "StealFoodAction"}}, 6 = "StealFoodAction", 7 = "empty_fn, cond = function() return cfg.BEARGER_NOSMASH > 2 end"}}}
+--Sample input: {{1, 2, 4, 2, 2, "getactionfn = StealFoodAction"}, {1, 2, 6, "getactionfn = StealFoodAction"}, {1, 2, 7, "getactionfn = empty_fn, cond = function() return cfg.BEARGER_NOSMASH > 2 end"}}
+--Sample output: {1 = {2 = {4 = {2 = {2 = "getactionfn = StealFoodAction"}}, 6 = "getactionfn = StealFoodAction", 7 = "getactionfn = empty_fn, cond = function() return cfg.BEARGER_NOSMASH > 2 end"}}}
 local function combine_path_table(t)
     local out = {}
     if #t < 2 then --no possible splits, just convert
@@ -164,7 +169,7 @@ local function build_surgery_table(node, t, node_num, indent)
     s = s.."name = \""..node.name.."\", "
 
     if type(t) == "string" then
-        s = s.."fn = "..t.."}" --t can contain arbritrary extra keys (e.g., "cond = ")
+        s = s..t.."}" --t can contain any number of arbritrary keys (e.g., "cond = ")
     elseif type(t) == "table" then
         local child_s = ""
 
@@ -182,11 +187,12 @@ local function build_surgery_table(node, t, node_num, indent)
 end
 
 --Build a table for use with HackUtil.perform_surgery --Set GLOBAL.surgery_table to this fn and run from console.
---Each entry in the "paths" table should be a list of child nodes to follow, terminated by a string that
---  contains a function accessible from your modmain.lua (or wherever you're keeping the outputted surgery table.)
---You may optionally add ", cond = " to the string and a function to be tested by your modmain.lua to check if the replacement should actually occur at runtime.
---Sample use: surgery_table(c_select(), {{1,2,4,2,2,"StealFoodAction"}, {1,2,6,"StealFoodAction"}, {1,2,7,"empty_fn, cond = function() return cfg.BEARGER_NOSMASH > 2 end"}})
---See example modmain.lua for context: https://github.com/Bumber64/DST-mods/blob/3f07de8db94513bb9448d94ff10ddff8d0081abc/Don't%20Fumble/modmain.lua#L368
+--Each entry in the "paths" table should be a list of child nodes to follow, terminated by a string that contains node key-value pairs to replace.
+--If the value contains a variable or function, everything needed should be accessible in the scope of your modmain.lua (or wherever you're keeping the outputted surgery table.)
+--There's a special key "cond" used to check if the node replacement should occur at runtime, and its value should be a test function.
+--WARNING: The keys "name", "num", "child", and "children" are reserved and will cause issues if used in the string.
+--Sample use: surgery_table(c_select(), {{1,2,4,2,2,"getactionfn = StealFoodAction"}, {1,2,6,"getactionfn = StealFoodAction"}, {1,2,7,"getactionfn = empty_fn, cond = function() return cfg.BEARGER_NOSMASH > 2 end"}})
+--See example modmain.lua for context: https://github.com/Bumber64/DST-mods/blob/9207684f329684e443fafb65c4cc2662ccd86a17/Don't%20Fumble/modmain.lua#L362
 function HackUtil.surgery_table(self, paths)
     if self and paths and type(paths) == "table" and self.brain and self.brain.bt and self.brain.bt.root then
         local surgery_string = build_surgery_table(self.brain.bt.root, combine_path_table(paths))
@@ -202,11 +208,11 @@ local bearger_surgery =
         {num = 2, name = "Priority", children =
             {{num = 4, name = "Parallel", child =
                 {num = 2, name = "Priority", child =
-                    {num = 2, name = "DoAction", fn = StealFoodAction}
+                    {num = 2, name = "DoAction", getactionfn = StealFoodAction}
                 }
             },
-            {num = 6, name = "DoAction", fn = StealFoodAction},
-            {num = 7, name = "AttackHive", fn = empty_fn, cond = function() return cfg.BEARGER_NOSMASH > 2 end}}
+            {num = 6, name = "DoAction", getactionfn = StealFoodAction},
+            {num = 7, name = "AttackHive", getactionfn = empty_fn, cond = function() return cfg.BEARGER_NOSMASH > 2 end}}
         }
     }
 }
@@ -215,13 +221,14 @@ local bearger_surgery =
 AddBrainPostInit("beargerbrain", function(self)
     local err_msg = HackUtil.perform_surgery(self.bt.root, bearger_surgery)
     if err_msg then
-        print(err_msg)
+        print("[My Mod Name] Error ("..GLOBAL.tostring(self.inst).."): "..err_msg)
     end
 end)
 --]]
 
---Replaces action fns in brain nodes using a pre-generated table from HackUtil.surgery_table filled with node info.
+--Replaces node key-value pairs in brain nodes using a pre-generated table from HackUtil.surgery_table filled with node info.
 --Sample usage: see AddBrainPostInit example above
+local reserved_keys = {name = true, num = true, child = true, children = true, cond = true} --don't try to replace these in brain node
 function HackUtil.perform_surgery(node, t)
     if not node or not t then
         return ("Brain surgery nil argument!\nnode.name = %s\nt = %s"):format(tostring(node and node.name or nil), table_string(t, 1))
@@ -249,11 +256,13 @@ function HackUtil.perform_surgery(node, t)
         end
     end
 
-    if t.fn and (not t.cond or t.cond()) then
-        if not node.getactionfn then
-            return ("Brain surgery node.getactionfn was nil!\nnode.name = %s\nt = %s"):format(tostring(node.name), table_string(t, 1))
-        else
-            node.getactionfn = t.fn
+    if t.cond and not t.cond() then --failed runtime condition
+        return
+    end
+
+    for k, v in pairs(t) do
+        if not reserved_keys[k] then
+            node[k] = v
         end
     end
 end

@@ -8,6 +8,7 @@ local TheSim = _G.TheSim
 local EQUIPSLOTS = _G.EQUIPSLOTS
 local ACTIONS = _G.ACTIONS
 local BufferedAction = _G.BufferedAction
+local ts = _G.tostring
 
 local function modprint(s)
     print("[Don't Fumble] "..s)
@@ -68,20 +69,13 @@ local cfg_name = nil --don't need table anymore
 --[[
 Fixing misaligned brains:
 1. Uncomment variables "_G.brain_exam" and "_G.surgery_table" to enable those functions in console.
-2. Run "brain_exam(c_select())" on desired creature. Brain takes time to start, so don't use "brain_exam(c_spawn("bearger")".
+2. Run "brain_exam(c_select(), {"getactionfn"})" on desired creature. Brain takes time to start, so don't use "brain_exam(c_spawn("bearger"))".
 
-3. Compare result with existing surgery table (e.g., "bearger_surgery".)
-   Refer to Klei's creature's brain script (e.g., "/scripts/brains/beargerbrain.lua") for actual getactionfn names.
+3. Compare result with the commented "surgery_table" commands located before each surgery table (e.g., "bearger_surgery",) looking for any numbered paths that are wrong.
+   Refer to Klei's brain script for the creature (e.g., "/scripts/brains/beargerbrain.lua") for the actual getactionfn names rather than memory addresses.
 
-4. For each "fn" entry in the old surgery table, copy everything between "fn = " and the next "}" and enclose in quotes
-   (e.g., "empty_fn, cond = function() return cfg.BEARGER_NOSMASH > 2 end")
-   and then give the numbered path (from brain_exam output, excluding the root "R")
-   that leads to the getactionfn it should replace. Each one of these goes in a table
-   (e.g., {1,2,7,"empty_fn, cond = function() return cfg.BEARGER_NOSMASH > 2 end"})
-   and then all those go in a table that can be passed as the second argument to surgery_table.
-
-5. Finally, run "surgery_table(c_select(), {your table from step 4})" on the creature
-   and copy the printed surgery table from the log. Replace the existing table (e.g., "bearger_surgery") with it.
+4. Fix up the numbered paths on the commented commands and run those to generate an updated table.
+5. Replace the existing table (e.g., "bearger_surgery") with the printed output in the log.
 --]]
 
 --_G.surgery_table = HackUtil.surgery_table
@@ -102,7 +96,7 @@ end
 
 if cfg.WET_NOFUMBLE > 0 then
     local function hack_DropWetTool(inst) --remove DropWetTool (prefabs/player_common.lua)
-        modprint("Upvalue hacking (".._G.tostring(inst)..") for DropWetTool")
+        modprint("Upvalue hacking ("..ts(inst)..") for DropWetTool")
         local t = inst.event_listening.onattackother
         t = t and t[inst] or nil --all listeners where player is listening to themself attack others
 
@@ -365,18 +359,18 @@ if cfg.BEARGER_NOSTEAL > 0 or cfg.BEARGER_NOSMASH > 0 then
         end
     end
 
-    --Table generated using surgery_table function
+    --surgery_table(c_select(), {{1,2,4,2,2,"getactionfn = StealFoodAction"}, {1,2,6,"getactionfn = StealFoodAction"}, {1,2,7,"getactionfn = empty_fn, cond = function() return cfg.BEARGER_NOSMASH > 2 end"}})
     local bearger_surgery =
     {name = "Priority", child =
         {num = 1, name = "Parallel", child =
             {num = 2, name = "Priority", children =
                 {{num = 4, name = "Parallel", child =
                     {num = 2, name = "Priority", child =
-                        {num = 2, name = "DoAction", fn = StealFoodAction}
+                        {num = 2, name = "DoAction", getactionfn = StealFoodAction}
                     }
                 },
-                {num = 6, name = "DoAction", fn = StealFoodAction},
-                {num = 7, name = "AttackHive", fn = empty_fn, cond = function() return cfg.BEARGER_NOSMASH > 2 end}}
+                {num = 6, name = "DoAction", getactionfn = StealFoodAction},
+                {num = 7, name = "AttackHive", getactionfn = empty_fn, cond = function() return cfg.BEARGER_NOSMASH > 2 end}}
             }
         }
     }
@@ -384,7 +378,7 @@ if cfg.BEARGER_NOSTEAL > 0 or cfg.BEARGER_NOSMASH > 0 then
     AddBrainPostInit("beargerbrain", function(self)
         local err_msg = HackUtil.perform_surgery(self.bt.root, bearger_surgery)
         if err_msg then
-            modprint(err_msg)
+            modprint("Error ("..ts(self.inst).."): "..err_msg)
         end
     end)
 end
@@ -576,18 +570,19 @@ if cfg.PMONKEY_NOSMASH > 0 or cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GRO
         inst.nothingtosteal = true
     end
 
+    --surgery_table(c_select(), {{11,"getactionfn = DoTinker"}, {14,1,"getactionfn = ShouldSteal"}})
     local powder_monkey_surgery =
     {name = "Priority", children =
-        {{num = 11, name = "tinker", fn = DoTinker},
+        {{num = 11, name = "tinker", getactionfn = DoTinker},
         {num = 14, name = "ChattyNode", child =
-            {num = 1, name = "steal", fn = ShouldSteal}
+            {num = 1, name = "steal", getactionfn = ShouldSteal}
         }}
     }
 
     AddBrainPostInit("powdermonkeybrain", function(self)
         local err_msg = HackUtil.perform_surgery(self.bt.root, powder_monkey_surgery)
         if err_msg then
-            modprint(err_msg)
+            modprint("Error ("..ts(self.inst).."): "..err_msg)
         end
     end)
 end
@@ -694,15 +689,16 @@ if cfg.SLURTLE_NOSTEAL > 0 then
         end
     end
 
+    --surgery_table(c_select(), {{5,"getactionfn = StealFoodAction"}})
     local slurtle_surgery =
     {name = "Priority", child =
-        {num = 5, name = "DoAction", fn = StealFoodAction}
+        {num = 5, name = "DoAction", getactionfn = StealFoodAction}
     }
 
     AddBrainPostInit("slurtlebrain", function(self)
         local err_msg = HackUtil.perform_surgery(self.bt.root, slurtle_surgery)
         if err_msg then
-            modprint(err_msg)
+            modprint("Error ("..ts(self.inst).."): "..err_msg)
         end
     end)
 
@@ -710,7 +706,7 @@ if cfg.SLURTLE_NOSTEAL > 0 then
     AddBrainPostInit("slurtlesnailbrain", function(self)
         local err_msg = HackUtil.perform_surgery(self.bt.root, slurtle_surgery)
         if err_msg then
-            modprint(err_msg)
+            modprint("Error ("..ts(self.inst).."): "..err_msg)
         end
     end)
 end
@@ -880,7 +876,7 @@ if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_NOCHEST > 0 then
         end
     end
 
-    local function monkeybrain_check(root) --double check some nodes because monkey has flat brain
+    local function monkeybrain_check(root) --double check some nodes because some look identical in smooth monkey brain
         local node = root.children and root.children[6]
         node = node and node.children and node.children[1]
         node = node and node.name and node.name == "Should Eat"
@@ -894,13 +890,14 @@ if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_NOCHEST > 0 then
         return node
     end
 
+    --surgery_table(c_select(), {{6,2,"getactionfn = EatFoodAction, cond = function() return cfg.SPLUMONKEY_NOSTEAL > 0 end"}, {9,2,"getactionfn = AnnoyLeader"}})
     local monkey_surgery =
     {name = "Priority", children =
         {{num = 6, name = "Parallel", child =
-            {num = 2, name = "DoAction", fn = EatFoodAction, cond = function() return cfg.SPLUMONKEY_NOSTEAL > 0 end}
+            {num = 2, name = "DoAction", getactionfn = EatFoodAction, cond = function() return cfg.SPLUMONKEY_NOSTEAL > 0 end}
         },
         {num = 9, name = "Parallel", child =
-            {num = 2, name = "DoAction", fn = AnnoyLeader}
+            {num = 2, name = "DoAction", getactionfn = AnnoyLeader}
         }}
     }
 
@@ -908,7 +905,7 @@ if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_NOCHEST > 0 then
         if monkeybrain_check(self.bt.root) then
             local err_msg = HackUtil.perform_surgery(self.bt.root, monkey_surgery)
             if err_msg then
-                modprint(err_msg)
+                modprint("Error ("..ts(self.inst).."): "..err_msg)
             end
         else
             modprint("Splumonkey brain surgery failed pre-check!")

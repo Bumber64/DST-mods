@@ -656,33 +656,35 @@ if cfg.SLURTLE_NOSTEAL > 0 then
         local ents = TheSim:FindEntities(x, y, z, SEE_FOOD_DIST, nil, STEALFOOD_CANT_TAGS, STEALFOOD_ONEOF_TAGS)
 
         for i, v in ipairs(ents) do
-            local inv = v.components.inventory
-            if inv and v:IsOnValidGround() then
-                local pack = inv:GetEquippedItem(EQUIPSLOTS.BODY)
-                local validfood = {}
-                if pack and pack.components.container then
-                    for k = 1, pack.components.container.numslots do
-                        local item = pack.components.container.slots[k]
+            if not v:HasDebuff("healingsalve_acidbuff") then
+                local inv = v.components.inventory
+                if inv and v:IsOnValidGround() then
+                    local pack = inv:GetEquippedItem(EQUIPSLOTS.BODY)
+                    local validfood = {}
+                    if pack and pack.components.container then
+                        for k = 1, pack.components.container.numslots do
+                            local item = pack.components.container.slots[k]
+                            if item and item.components.edible and inst.components.eater:CanEat(item) then
+                                table.insert(validfood, item)
+                            end
+                        end
+                    end
+
+                    for k = 1, inv.maxslots do
+                        local item = inv.itemslots[k]
                         if item and item.components.edible and inst.components.eater:CanEat(item) then
                             table.insert(validfood, item)
                         end
                     end
-                end
 
-                for k = 1, inv.maxslots do
-                    local item = inv.itemslots[k]
-                    if item and item.components.edible and inst.components.eater:CanEat(item) then
-                        table.insert(validfood, item)
-                    end
-                end
-
-                if #validfood > 0 then
-                    local itemtosteal = validfood[math.random(1, #validfood)]
-                    if itemtosteal then
-                        local act = BufferedAction(inst, itemtosteal, ACTIONS.STEAL)
-                        act.validfn = function() return (itemtosteal.components.inventoryitem and itemtosteal.components.inventoryitem:IsHeld()) end
-                        act.attack = true
-                        return act
+                    if #validfood > 0 then
+                        local itemtosteal = validfood[math.random(1, #validfood)]
+                        if itemtosteal then
+                            local act = BufferedAction(inst, itemtosteal, ACTIONS.STEAL)
+                            act.validfn = function() return (itemtosteal.components.inventoryitem and itemtosteal.components.inventoryitem:IsHeld()) end
+                            act.attack = true
+                            return act
+                        end
                     end
                 end
             end
@@ -717,7 +719,7 @@ end
 
 if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_NOCHEST > 0 then
 
-    local SEE_FOOD_DIST = 10 --defaults from monkeybrain.lua
+    local SEE_ITEM_DISTANCE = 10 --defaults from monkeybrain.lua
     local TIME_BETWEEN_EATING = 30
     local PICKUP_ONEOF_TAGS = {"_inventoryitem", "pickable", "readyforharvest"}
     local NO_LOOTING_TAGS = {"INLIMBO", "catchable", "fire", "irreplaceable", "heavy", "outofreach", "spider"}
@@ -752,12 +754,12 @@ if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_NOCHEST > 0 then
         end
 
         local x, y, z = inst.Transform:GetWorldPosition()
-        local ents = TheSim:FindEntities(x, y, z, SEE_FOOD_DIST, nil, NO_PICKUP_TAGS, PICKUP_ONEOF_TAGS)
+        local ents = TheSim:FindEntities(x, y, z, SEE_ITEM_DISTANCE, nil, NO_PICKUP_TAGS, PICKUP_ONEOF_TAGS)
 
         local targets = {} --do in one pass like bearger
         local wants_hat = cfg.SPLUMONKEY_NOSTEAL < 2 and inst.components.inventory and not inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HEAD)
 
-        for i, item in ipairs(ents) do
+        for _, item in ipairs(ents) do
             if wants_hat and item.components.equippable and --Hats
                 item.components.equippable.equipslot == EQUIPSLOTS.HEAD and
                 item.components.inventoryitem and
@@ -802,6 +804,7 @@ if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_NOCHEST > 0 then
     if cfg.SPLUMONKEY_NOCHEST == 0 or cfg.SPLUMONKEY_NOSTEAL == 0 then --allow some stealing
         local ANNOY_ONEOF_TAGS = { "_inventoryitem", "_container" }
         local ANNOY_ALT_MUST_TAG = { "_inventoryitem" }
+        local CANT_PICKUP_TAGS = {"heavy", "irreplaceable", "outofreach"}
 
         AnnoyLeader = function(inst) --limit targets based on config
             if inst.sg:HasStateTag("busy") then
@@ -815,10 +818,10 @@ if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_NOCHEST > 0 then
                 TheSim:FindEntities(mx, 0, mz, 30, ANNOY_ALT_MUST_TAG, NO_PICKUP_TAGS)
 
             if cfg.SPLUMONKEY_NOSTEAL == 0 then --Misc not protected
-                for i, v in ipairs(ents) do --recent drops
+                for _, v in ipairs(ents) do --recent drops
                     if v.components.inventoryitem and
                         v.components.inventoryitem.canbepickedup and
-                        v.components.container == nil and
+                        not v.components.container and
                         v:GetTimeAlive() < 5 then
                             return BufferedAction(inst, v, ACTIONS.PICKUP)
                     end
@@ -828,7 +831,7 @@ if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_NOCHEST > 0 then
                 if ba and ba.action.id == "PICKUP" then --targeted item
                     local tar = ba.target
                     if tar and tar:IsValid() and tar.components.inventoryitem and not tar.components.inventoryitem:IsHeld() and
-                        tar.components.container == nil and not (tar:HasTag("irreplaceable") or tar:HasTag("heavy") or tar:HasTag("outofreach")) and
+                        not tar.components.container and not tar:HasAnyTag(CANT_PICKUP_TAGS) and
                         not (tar.components.burnable and tar.components.burnable:IsBurning()) and
                         not (tar.components.projectile and tar.components.projectile.cancatch and tar.components.projectile.target) then
                             local tx, ty, tz = tar.Transform:GetWorldPosition()
@@ -839,7 +842,7 @@ if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_NOCHEST > 0 then
 
             if lootchests then
                 local items = {}
-                for i, v in ipairs(ents) do
+                for _, v in ipairs(ents) do
                     if v.components.container and
                         v.components.container.canbeopened and
                         not v.components.container:IsOpen() and
@@ -877,26 +880,26 @@ if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_NOCHEST > 0 then
     end
 
     local function monkeybrain_check(root) --double check some nodes because some look identical in smooth monkey brain
-        local node = root.children and root.children[6]
+        local node = root.children and root.children[7]
         node = node and node.children and node.children[1]
         node = node and node.name and node.name == "Should Eat"
         if not node then
             return
         end
 
-        node = root.children and root.children[9]
+        node = root.children and root.children[10]
         node = node and node.children and node.children[1]
         node = node and node.name and node.name == "Annoy Leader"
         return node
     end
 
-    --surgery_table(c_select(), {{6,2,"getactionfn = EatFoodAction, cond = function() return cfg.SPLUMONKEY_NOSTEAL > 0 end"}, {9,2,"getactionfn = AnnoyLeader"}})
+    --surgery_table(c_select(), {{7,2,"getactionfn = EatFoodAction, cond = function() return cfg.SPLUMONKEY_NOSTEAL > 0 end"}, {10,2,"getactionfn = AnnoyLeader"}})
     local monkey_surgery =
     {name = "Priority", children =
-        {{num = 6, name = "Parallel", child =
+        {{num = 7, name = "Parallel", child =
             {num = 2, name = "DoAction", getactionfn = EatFoodAction, cond = function() return cfg.SPLUMONKEY_NOSTEAL > 0 end}
         },
-        {num = 9, name = "Parallel", child =
+        {num = 10, name = "Parallel", child =
             {num = 2, name = "DoAction", getactionfn = AnnoyLeader}
         }}
     }

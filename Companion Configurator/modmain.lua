@@ -4,74 +4,106 @@ if not _G.TheNet:GetIsServer() then
     return
 end
 
+local ts = _G.tostring
+
 local function modprint(s)
     print("[Companion Configurator] "..s)
 end
 
-local cfg =
+local function set_invincible(inst)
+    inst.components.health:SetInvincible(true)
+end
+
+local HackUtil = require("tools/hackutil")
+
+-------------------------------------------
+---------------- Settings -----------------
+-------------------------------------------
+
+local cfg_name =
 {
-    CHESTER_HEALTH = GetModConfigData("chester_health"), --0:Default, 1:10k, 2:InstantRegen, 3:Invincible
-    CHESTER_NOTARGET = GetModConfigData("chester_notarget"), --0:Default, 1:notarget
-    HUTCH_FRIDGE = GetModConfigData("hutch_fridge"), --0:Default, 1:fridge
-    SHADOW_FRIDGE = GetModConfigData("shadow_fridge"), --0:Default, 1:fridge 2:fridge-spoiler
-    CHESTER_MASS = GetModConfigData("chester_mass"), --0:Default
+    "chester_health", --0:Default, 1:10k, 2:InstantRegen, 3:Invincible
+    "chester_notarget", --0:Default, 1:notarget
+    "hutch_fridge", --0:Default, 1:fridge
+    "shadow_fridge", --0:Default, 1:fridge 2:fridge-spoiler
+    "chester_mass", --0:Default
 
-    GLOMMER_HEALTH = GetModConfigData("glommer_health"), --0:Default, 1:10k, 2:InstantRegen, 3:Invincible
-    GLOMMER_NOTARGET = GetModConfigData("glommer_notarget"), --0:Default, 1:notarget
-    GLOMMER_MASS = GetModConfigData("glommer_mass"), --0:Default
+    "glommer_health", --0:Default, 1:10k, 2:InstantRegen, 3:Invincible
+    "glommer_notarget", --0:Default, 1:notarget
+    "glommer_mass", --0:Default
 
-    POLLY_HEALTH = GetModConfigData("polly_health"), --0:Default, 1:10k, 2:InstantRegen, 3:Invincible
-    POLLY_NOTARGET = GetModConfigData("polly_notarget"), --0:Default, 1:notarget
-    POLLY_MASS = GetModConfigData("polly_mass"), --0:Default
+    "polly_health", --0:Default, 1:10k, 2:InstantRegen, 3:Invincible
+    "polly_notarget", --0:Default, 1:notarget
+    "polly_mass", --0:Default
 
-    FFFLY_HEALTH = GetModConfigData("fffly_health"), --0:Default, 1:10k, 2:InstantRegen, 3:Invincible
-    FFFLY_NOTARGET = GetModConfigData("fffly_notarget"), --0:Default, 1:notarget
-    FFFLY_NOFREEZE = GetModConfigData("fffly_nofreeze"), --0:Default, 1:Immune
-    FFFLY_MASS = GetModConfigData("fffly_mass"), --0:Default
+    "fffly_health", --0:Default, 1:10k, 2:InstantRegen, 3:Invincible
+    "fffly_notarget", --0:Default, 1:notarget
+    "fffly_nofreeze", --0:Default, 1:Immune
+    "fffly_mass", --0:Default
 
-    LAVAE_PET_HEALTH = GetModConfigData("lavae_pet_health"), --0:Default, 1:10k, 2:InstantRegen, 3:Invincible
-    LAVAE_PET_NOTARGET = GetModConfigData("lavae_pet_notarget"), --0:Default, 1:notarget
-    LAVAE_PET_NOFREEZE = GetModConfigData("lavae_pet_nofreeze"), --0:Default, 1:Protect, 2:Immune
-    LAVAE_PET_NOFIRE = GetModConfigData("lavae_pet_nofire"), --0:Default, 1:Prevent
-    LAVAE_PET_MASS = GetModConfigData("lavae_pet_mass"), --0:Default
+    "lavae_pet_health", --0:Default, 1:10k, 2:InstantRegen, 3:Invincible
+    "lavae_pet_notarget", --0:Default, 1:notarget
+    "lavae_pet_nofreeze", --0:Default, 1:Protect, 2:Immune
+    "lavae_pet_nofire", --0:Default, 1:Prevent
+    "lavae_pet_mass", --0:Default
 
-    BEEFALO_HEALTH = GetModConfigData("beefalo_health"), --0:Default, 1:10k, 2:InstantRegen, 3:Invincible
-    BEEFALO_NOTARGET = GetModConfigData("beefalo_notarget"), --0:Default, 1:notarget
-    BEEFALO_MASS = GetModConfigData("beefalo_mass"), --0:Default
-    BEEFALO_RIDE = GetModConfigData("beefalo_ride"), --0:Suspend, 1:Enabled
+    "beefalo_health", --0:Default, 1:10k, 2:InstantRegen, 3:Invincible
+    "beefalo_notarget", --0:Default, 1:notarget
+    "beefalo_mass", --0:Default
+    "beefalo_ride", --0:Suspend, 1:Enabled
 
-    SPIDERS_NOTRAP = GetModConfigData("spiders_notrap"), --0:Default, 1:notraptrigger
-    SPIDERS_DEADLEADER = GetModConfigData("spiders_deadleader"), --0:Default, 1:keepdeadleader
-    SPIDERS_MASS = GetModConfigData("spiders_mass"), --0:Default
+    "spiders_notrap", --0:Default, 1:notraptrigger
+    "spiders_deadleader", --0:Default, 1:keepdeadleader
+    "spiders_mass", --0:Default
 
-    PIGMERMBUN_NOTRAP = GetModConfigData("pigmermbun_notrap"), --0:Default, 1:notraptrigger
-    PIGMERMBUN_LOYALTY = GetModConfigData("pigmermbun_loyalty"), --0:Default, 1:AlwaysLoyal
-    PIGMERMBUN_DEADLEADER = GetModConfigData("pigmermbun_deadleader"), --0:Default, 1:keepdeadleader
-    PIGMERMBUN_MASS = GetModConfigData("pigmermbun_mass"), --0:Default
+    "pigmermbun_notrap", --0:Default, 1:notraptrigger
+    "pigmermbun_loyalty", --0:Default, 1:AlwaysLoyal
+    "pigmermbun_deadleader", --0:Default, 1:keepdeadleader
+    "pigmermbun_mass", --0:Default
 
-    ROCKY_LOYALTY = GetModConfigData("rocky_loyalty"), --0:Default, 1:AlwaysLoyal
-    ROCKY_EPICSCARE = GetModConfigData("rocky_epicscare"), --0:Default, 1:RemainLoyal
-    ROCKY_DEADLEADER = GetModConfigData("rocky_deadleader"), --0:Default, 1:keepdeadleader
-    ROCKY_SPEED = GetModConfigData("rocky_speed"), --0:Default
-    ROCKY_MASS = GetModConfigData("rocky_mass"), --0:Default
+    "rocky_loyalty", --0:Default, 1:AlwaysLoyal
+    "rocky_epicscare", --0:Default, 1:RemainLoyal
+    "rocky_deadleader", --0:Default, 1:keepdeadleader
+    "rocky_speed", --0:Default
+    "rocky_mass", --0:Default
 
-    SMALLBIRD_DEADLEADER = GetModConfigData("smallbird_deadleader"), --0:Default, 1:keepdeadleader
-    SMALLBIRD_MASS = GetModConfigData("smallbird_mass"), --0:Default
+    "smallbird_deadleader", --0:Default, 1:keepdeadleader
+    "smallbird_mass", --0:Default
 
-    FOLLOW_GHOST = GetModConfigData("follow_ghost"), --0:No, 1:Yes
+    "follow_ghost", --0:No, 1:Yes
 }
 
-if not _G.GetGameModeProperty("ghost_enabled") then
-    cfg.GHOST_FOLLOW = 1 --skip needless code
+local cfg = {}
+for _, s in ipairs(cfg_name) do
+    local n = GetModConfigData(s)
+    cfg[string.upper(s)] = type(n) == "number" and n or 0
 end
+
+local cfg_name = nil --don't need table anymore
+
+if not _G.GetGameModeProperty("ghost_enabled") then
+    cfg.FOLLOW_GHOST = 1 --skip needless code
+end
+
+-------------------------------------------
+------------------ Debug ------------------
+-------------------------------------------
+
+--[[
+Fixing misaligned brains:
+1. Uncomment variables "_G.brain_exam" and "_G.surgery_table" to enable those functions in console.
+2. Run "brain_exam(c_select(), {"target","homepos"})" on desired creature. Brain takes time to start, so don't use "brain_exam(c_spawn("smallbird"))".
+3. Compare result with the nodes being modified in existing surgery table (e.g., "smallbird_surgery",) looking for any numbered paths that are wrong.
+4. Fix up the numbered paths on the commented "surgery_table" commands located before each surgery table and run those to generate an updated table.
+5. Replace the existing table (e.g., "smallbird_surgery") with the output in the log.
+--]]
+
+--_G.brain_exam = HackUtil.brain_exam
+--_G.surgery_table = HackUtil.surgery_table
 
 ----------------------------------------
 ----------- Chester and Hutch ----------
 ----------------------------------------
-
-local function set_invincible(inst)
-    inst.components.health:SetInvincible(true)
-end
 
 if cfg.SHADOW_FRIDGE > 0 then
     AddPrefabPostInit("shadow_container", function(inst)
@@ -258,7 +290,7 @@ if cfg.LAVAE_PET_HEALTH > 0 or cfg.LAVAE_PET_NOTARGET > 0 or cfg.LAVAE_PET_NOFRE
 
         if (cfg.LAVAE_PET_NOFREEZE > 0 or cfg.LAVAE_PET_NOTARGET > 0) and inst.components.trader then
             local old_testfn = inst.components.trader.test
-            inst.components.trader:SetAcceptTest(function(inst, item)
+            inst.components.trader:SetAcceptTest(function(inst, item, ...)
                 if item.prefab == "icestaff" then
                     if item.components.finiteuses then
                         item.components.finiteuses:Use()
@@ -270,7 +302,7 @@ if cfg.LAVAE_PET_HEALTH > 0 or cfg.LAVAE_PET_NOTARGET > 0 or cfg.LAVAE_PET_NOFRE
                         inst.components.lootdropper:SpawnLootPrefab("lavae_cocoon")
                     end
                 else
-                    return old_testfn and old_testfn(inst, item) or nil
+                    return old_testfn and old_testfn(inst, item, ...) or nil
                 end
             end)
         end
@@ -310,6 +342,9 @@ if cfg.BEEFALO_HEALTH > 0 or cfg.BEEFALO_NOTARGET > 0 or cfg.BEEFALO_MASS > 0 th
             end
 
             if cfg.BEEFALO_MASS > 0 then
+                if not inst._default_mass then
+                    inst._default_mass = inst.Physics:GetMass()
+                end
                 inst.Physics:SetMass(cfg.BEEFALO_MASS)
             end
         else
@@ -331,8 +366,9 @@ if cfg.BEEFALO_HEALTH > 0 or cfg.BEEFALO_NOTARGET > 0 or cfg.BEEFALO_MASS > 0 th
                 inst:RemoveTag("notarget")
             end
 
-            if cfg.BEEFALO_MASS > 0 then
-                inst.Physics:SetMass(100)
+            if inst._default_mass then
+                inst.Physics:SetMass(inst._default_mass)
+                inst._default_mass = nil
             end
         end
     end
@@ -382,7 +418,7 @@ if cfg.BEEFALO_HEALTH > 0 or cfg.BEEFALO_NOTARGET > 0 or cfg.BEEFALO_MASS > 0 th
 end
 
 ----------------------------------------
----------------- Spiders ---------------
+------------- Follower fns -------------
 ----------------------------------------
 
 local function NoHoles(pt)
@@ -507,6 +543,10 @@ local function followleaderfn(inst) --don't follow player ghost
     return (leader and not leader:HasTag("playerghost")) and leader or nil
 end
 
+----------------------------------------
+---------------- Spiders ---------------
+----------------------------------------
+
 if cfg.SPIDERS_NOTRAP > 0 or cfg.SPIDERS_DEADLEADER > 0 or cfg.SPIDERS_MASS > 0 then
     local function spider_leadfn(inst, new_leader, prev_leader)
         local player_new = (new_leader and new_leader:HasTag("player")) and new_leader
@@ -540,65 +580,48 @@ if cfg.SPIDERS_NOTRAP > 0 or cfg.SPIDERS_DEADLEADER > 0 or cfg.SPIDERS_MASS > 0 
     end
 
     if cfg.SPIDERS_DEADLEADER > 0 and cfg.FOLLOW_GHOST == 0 then
-        AddBrainPostInit("spiderbrain", function(self) --has 2 Follow nodes that target leader
-            local node = self.bt.root.children[4]
-            if node and node.children then
-                node = node.children[1]
-            end
-            if node and node.children then
-                node = node.children[2]
-            end
-            if node and node.children then
-                node = node.children[1]
-            end
-            if node and node.name == "Follow" then
-                node.target = followleaderfn
+        --surgery_table(c_select(), {{4,1,2,1,"target = followleaderfn"}, {4,2,2,2,"target = followleaderfn"}})
+        local spider_surgery =
+        {name = "Priority", child =
+            {num = 4, name = "Priority", children =
+                {{num = 1, name = "Sequence", child =
+                    {num = 2, name = "Priority", child =
+                        {num = 1, name = "Follow", target = followleaderfn}
+                    }
+                },
+                {num = 2, name = "Sequence", child =
+                    {num = 2, name = "Priority", child =
+                        {num = 2, name = "Follow", target = followleaderfn}
+                    }
+                }}
+            }
+        }
 
-                node = self.bt.root.children[4]
-                if node and node.children then
-                    node = node.children[2]
-                end
-                if node and node.children then
-                    node = node.children[2]
-                end
-                if node and node.children then
-                    node = node.children[2]
-                end
-                if node and node.name == "Follow" then
-                    node.target = followleaderfn
-                else
-                    modprint("Spider brain surgery #2 failed!")
-                end
-            else
-                modprint("Spider brain surgery #1 failed!")
+        AddBrainPostInit("spiderbrain", function(self)
+            local err_msg = HackUtil.perform_surgery(self.bt.root, spider_surgery)
+            if err_msg then
+                modprint("Error ("..ts(self.inst).."): "..err_msg)
             end
-            node = nil
         end)
 
-        AddBrainPostInit("spider_waterbrain", function(self) --has 2 Follow nodes that target leader
-            local node = self.bt.root.children[5]
-            if node and node.children then
-                node = node.children[2]
-            end
-            if node and node.name == "Follow" then
-                node.target = followleaderfn
+        --surgery_table(c_select(), {{5,2,"target = followleaderfn"}, {6,2,3,"target = followleaderfn"}})
+        local spider_water_surgery =
+        {name = "Priority", children =
+            {{num = 5, name = "Sequence", child =
+                {num = 2, name = "Follow", target = followleaderfn}
+            },
+            {num = 6, name = "Sequence", child =
+                {num = 2, name = "Priority", child =
+                    {num = 3, name = "Follow", target = followleaderfn}
+                }
+            }}
+        }
 
-                node = self.bt.root.children[6]
-                if node and node.children then
-                    node = node.children[2]
-                end
-                if node and node.children then
-                    node = node.children[3]
-                end
-                if node and node.name == "Follow" then
-                    node.target = followleaderfn
-                else
-                    modprint("Sea strider brain surgery #2 failed!")
-                end
-            else
-                modprint("Sea strider brain surgery #1 failed!")
+        AddBrainPostInit("spider_waterbrain", function(self)
+            local err_msg = HackUtil.perform_surgery(self.bt.root, spider_water_surgery)
+            if err_msg then
+                modprint("Error ("..ts(self.inst).."): "..err_msg)
             end
-            node = nil
         end)
     end
 
@@ -606,9 +629,9 @@ if cfg.SPIDERS_NOTRAP > 0 or cfg.SPIDERS_DEADLEADER > 0 or cfg.SPIDERS_MASS > 0 
         AddPrefabPostInit(v, function(inst)
             if inst.components.follower then
                 local old_leadfn = inst.components.follower.OnChangedLeader
-                inst.components.follower.OnChangedLeader = function(inst, new_leader, prev_leader)
+                inst.components.follower.OnChangedLeader = function(inst, new_leader, prev_leader, ...)
                     spider_leadfn(inst, new_leader, prev_leader)
-                    return old_leadfn and old_leadfn(inst, new_leader, prev_leader) or nil
+                    return old_leadfn and old_leadfn(inst, new_leader, prev_leader, ...) or nil
                 end
             end
 
@@ -666,59 +689,66 @@ if cfg.PIGMERMBUN_NOTRAP > 0 or cfg.PIGMERMBUN_LOYALTY > 0 or cfg.PIGMERMBUN_DEA
     end
 
     if cfg.PIGMERMBUN_DEADLEADER > 0 and cfg.FOLLOW_GHOST == 0 then
+        --surgery_table(c_select(), {{14,2,3,1,"target = followleaderfn"}})
+        local pigman_surgery =
+        {name = "Priority", child =
+            {num = 14, name = "Parallel", child =
+                {num = 2, name = "Priority", child =
+                    {num = 3, name = "ChattyNode", child =
+                        {num = 1, name = "Follow", target = followleaderfn}
+                    }
+                }
+            }
+        }
+
         AddBrainPostInit("pigbrain", function(self)
-            local node = self.bt.root.children[14]
-            if node and node.children then
-                node = node.children[2]
+            local err_msg = HackUtil.perform_surgery(self.bt.root, pigman_surgery)
+            if err_msg then
+                modprint("Error ("..ts(self.inst).."): "..err_msg)
             end
-            if node and node.children then
-                node = node.children[3]
-            end
-            if node and node.children then
-                node = node.children[1]
-            end
-            if node and node.name == "Follow" then
-                node.target = followleaderfn
-            else
-                modprint("Pig brain surgery failed!")
-            end
-            node = nil
         end)
+
+        --surgery_table(c_select(), {{12,1,"target = followleaderfn"}})
+        local merm_surgery =
+        {name = "Priority", child =
+            {num = 12, name = "ChattyNode", child =
+                {num = 1, name = "Follow", target = followleaderfn}
+            }
+        }
 
         AddBrainPostInit("mermbrain", function(self)
-            local node = self.bt.root.children[12]
-            if node and node.children then
-                node = node.children[1]
+            local err_msg = HackUtil.perform_surgery(self.bt.root, merm_surgery)
+            if err_msg then
+                modprint("Error ("..ts(self.inst).."): "..err_msg)
             end
-            if node and node.name == "Follow" then
-                node.target = followleaderfn
-            else
-                modprint("Merm brain surgery failed!")
-            end
-            node = nil
         end)
+
+        --surgery_table(c_select(), {{9,1,"target = followleaderfn"}})
+        local mermguard_surgery =
+        {name = "Priority", child =
+            {num = 9, name = "ChattyNode", child =
+                {num = 1, name = "Follow", target = followleaderfn}
+            }
+        }
 
         AddBrainPostInit("mermguardbrain", function(self)
-            local node = self.bt.root.children[9]
-            if node and node.children then
-                node = node.children[1]
+            local err_msg = HackUtil.perform_surgery(self.bt.root, mermguard_surgery)
+            if err_msg then
+                modprint("Error ("..ts(self.inst).."): "..err_msg)
             end
-            if node and node.name == "Follow" then
-                node.target = followleaderfn
-            else
-                modprint("Merm guard brain surgery failed!")
-            end
-            node = nil
         end)
 
+        --surgery_table(c_select(), {{10,"target = followleaderfn"}})
+        local bunnyman_surgery =
+        {name = "Priority", child =
+            {num = 10, name = "Follow", target = followleaderfn}
+        }
+
         AddBrainPostInit("bunnymanbrain", function(self)
-            local node = self.bt.root.children[9]
-            if node and node.name == "Follow" then
-                node.target = followleaderfn
-            else
-                modprint("Bunnyman brain surgery failed!")
+            local err_msg = HackUtil.perform_surgery(self.bt.root, bunnyman_surgery)
+            if err_msg then
+                modprint("Error ("..ts(self.inst).."): "..err_msg)
             end
-            node = nil
         end)
     end
 
@@ -726,9 +756,9 @@ if cfg.PIGMERMBUN_NOTRAP > 0 or cfg.PIGMERMBUN_LOYALTY > 0 or cfg.PIGMERMBUN_DEA
         AddPrefabPostInit(v, function(inst)
             if inst.components.follower then
                 local old_leadfn = inst.components.follower.OnChangedLeader
-                inst.components.follower.OnChangedLeader = function(inst, new_leader, prev_leader)
+                inst.components.follower.OnChangedLeader = function(inst, new_leader, prev_leader, ...)
                     pigmermbun_leadfn(inst, new_leader, prev_leader)
-                    return old_leadfn and old_leadfn(inst, new_leader, prev_leader) or nil
+                    return old_leadfn and old_leadfn(inst, new_leader, prev_leader, ...) or nil
                 end
 
                 if cfg.PIGMERMBUN_LOYALTY > 0 then
@@ -788,23 +818,26 @@ if cfg.ROCKY_LOYALTY > 0 or cfg.ROCKY_DEADLEADER > 0 or cfg.ROCKY_SPEED > 0 or c
     end
 
     if cfg.ROCKY_DEADLEADER > 0 and cfg.FOLLOW_GHOST == 0 then
+        --surgery_table(c_select(), {{5,"target = followleaderfn"}})
+        local rocky_surgery =
+        {name = "Priority", child =
+            {num = 5, name = "Follow", target = followleaderfn}
+        }
+
         AddBrainPostInit("rockybrain", function(self)
-            local node = self.bt.root.children[5]
-            if node and node.name == "Follow" then
-                node.target = followleaderfn
-            else
-                modprint("Rock lobster brain surgery failed!")
+            local err_msg = HackUtil.perform_surgery(self.bt.root, rocky_surgery)
+            if err_msg then
+                modprint("Error ("..ts(self.inst).."): "..err_msg)
             end
-            node = nil
         end)
     end
 
     AddPrefabPostInit("rocky", function(inst)
         if inst.components.follower then
             local old_leadfn = inst.components.follower.OnChangedLeader
-            inst.components.follower.OnChangedLeader = function(inst, new_leader, prev_leader)
+            inst.components.follower.OnChangedLeader = function(inst, new_leader, prev_leader, ...)
                 rocky_leadfn(inst, new_leader, prev_leader)
-                return old_leadfn and old_leadfn(inst, new_leader, prev_leader) or nil
+                return old_leadfn and old_leadfn(inst, new_leader, prev_leader, ...) or nil
             end
 
             if cfg.ROCKY_LOYALTY > 0 then --this also protects against epicscare due to a loyalty percent check in rockybrain
@@ -817,9 +850,9 @@ if cfg.ROCKY_LOYALTY > 0 or cfg.ROCKY_DEADLEADER > 0 or cfg.ROCKY_SPEED > 0 or c
 
             if cfg.ROCKY_SPEED > 0 and inst.components.scaler then
                 local old_scalefn = inst.components.scaler.OnApplyScale
-                inst.components.scaler.OnApplyScale = function(inst, scale)
+                inst.components.scaler.OnApplyScale = function(inst, scale, ...)
                     if old_scalefn then
-                        old_scalefn(inst, scale)
+                        old_scalefn(inst, scale, ...)
                     end
 
                     local leader = inst.components.follower.leader
@@ -868,56 +901,34 @@ if cfg.SMALLBIRD_DEADLEADER > 0 or cfg.SMALLBIRD_MASS > 0 then
             end
         end
 
-        AddBrainPostInit("smallbirdbrain", function(self) --has 3 Follow, 1 Wander nodes that target leader
-            local node = self.bt.root.children[3]
-            if node and node.children then
-                node = node.children[2]
-            end
-            if node and node.children then
-                node = node.children[2]
-            end
-            if node and node.children then
-                node = node.children[2]
-            end
-            if node and node.name == "Follow" then
-                node.target = followleaderfn
+        --surgery_table(c_select(), {{3,2,2,2,"target = followleaderfn"}, {6,2,2,2,"target = followleaderfn"}, {7,2,"target = followleaderfn"}, {8,"homepos = wanderleaderfn"}})
+        local smallbird_surgery =
+        {name = "Priority", children =
+            {{num = 3, name = "Sequence", child =
+                {num = 2, name = "Parallel(Any)", child =
+                    {num = 2, name = "Priority", child =
+                        {num = 2, name = "Follow", target = followleaderfn}
+                    }
+                }
+            },
+            {num = 6, name = "Sequence", child =
+                {num = 2, name = "Parallel(Any)", child =
+                    {num = 2, name = "Priority", child =
+                        {num = 2, name = "Follow", target = followleaderfn}
+                    }
+                }
+            },
+            {num = 7, name = "Priority", child =
+                {num = 2, name = "Follow", target = followleaderfn}
+            },
+            {num = 8, name = "Wander", homepos = wanderleaderfn}}
+        }
 
-                node = self.bt.root.children[6]
-                if node and node.children then
-                    node = node.children[2]
-                end
-                if node and node.children then
-                    node = node.children[2]
-                end
-                if node and node.children then
-                    node = node.children[2]
-                end
-                if node and node.name == "Follow" then
-                    node.target = followleaderfn
-
-                    node = self.bt.root.children[7]
-                    if node and node.children then
-                        node = node.children[2]
-                    end
-                    if node and node.name == "Follow" then
-                        node.target = followleaderfn
-
-                        node = self.bt.root.children[8]
-                        if node and node.name == "Wander" then
-                            node.homepos = function() return wanderleaderfn(self.inst) end
-                        else
-                            modprint("Smallbird brain surgery #4 failed!")
-                        end
-                    else
-                        modprint("Smallbird brain surgery #3 failed!")
-                    end
-                else
-                    modprint("Smallbird brain surgery #2 failed!")
-                end
-            else
-                modprint("Smallbird brain surgery #1 failed!")
+        AddBrainPostInit("smallbirdbrain", function(self)
+            local err_msg = HackUtil.perform_surgery(self.bt.root, smallbird_surgery)
+            if err_msg then
+                modprint("Error ("..ts(self.inst).."): "..err_msg)
             end
-            node = nil
         end)
     end
 
@@ -925,9 +936,9 @@ if cfg.SMALLBIRD_DEADLEADER > 0 or cfg.SMALLBIRD_MASS > 0 then
         AddPrefabPostInit(v, function(inst)
             if inst.components.follower then
                 local old_leadfn = inst.components.follower.OnChangedLeader
-                inst.components.follower.OnChangedLeader = function(inst, new_leader, prev_leader)
+                inst.components.follower.OnChangedLeader = function(inst, new_leader, prev_leader, ...)
                     smallbird_leadfn(inst, new_leader, prev_leader)
-                    return old_leadfn and old_leadfn(inst, new_leader, prev_leader) or nil
+                    return old_leadfn and old_leadfn(inst, new_leader, prev_leader, ...) or nil
                 end
 
                 if cfg.SMALLBIRD_DEADLEADER > 0 then

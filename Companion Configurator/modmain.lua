@@ -25,7 +25,7 @@ local cfg_name =
     "chester_health", --0:Default, 1:10k, 2:InstantRegen, 3:Invincible
     "chester_notarget", --0:Default, 1:notarget
     "hutch_fridge", --0:Default, 1:fridge
-    "shadow_fridge", --0:Default, 1:fridge 2:fridge-spoiler
+    "shadow_fridge", --0:Default, 1:fridge 2:fridge-no-spoiler
     "chester_mass", --0:Default
 
     "glommer_health", --0:Default, 1:10k, 2:InstantRegen, 3:Invincible
@@ -57,11 +57,11 @@ local cfg_name =
     "spiders_mass", --0:Default
 
     "pigmermbun_notrap", --0:Default, 1:notraptrigger
-    "pigmermbun_loyalty", --0:Default, 1:AlwaysLoyal
+    "pigmermbun_loyalty", --0:Default, 1:neverexpire
     "pigmermbun_deadleader", --0:Default, 1:keepdeadleader
     "pigmermbun_mass", --0:Default
 
-    "rocky_loyalty", --0:Default, 1:AlwaysLoyal
+    "rocky_loyalty", --0:Default, 1:neverexpire
     "rocky_epicscare", --0:Default, 1:RemainLoyal
     "rocky_deadleader", --0:Default, 1:keepdeadleader
     "rocky_speed", --0:Default
@@ -79,7 +79,7 @@ for _, s in ipairs(cfg_name) do
     cfg[string.upper(s)] = type(n) == "number" and n or 0
 end
 
-local cfg_name = nil --don't need table anymore
+cfg_name = nil --don't need table anymore
 
 if not _G.GetGameModeProperty("ghost_enabled") then
     cfg.FOLLOW_GHOST = 1 --skip needless code
@@ -262,10 +262,13 @@ if cfg.LAVAE_PET_HEALTH > 0 or cfg.LAVAE_PET_NOTARGET > 0 or cfg.LAVAE_PET_NOFRE
                 inst.components.health:SetInvincible(true)
                 inst:ListenForEvent("teleported", set_invincible)
 
-                local old_onfreezefn = inst.components.freezable.onfreezefn
-                inst.components.freezable.onfreezefn = function(inst)
-                    inst.components.health:SetInvincible(false)
-                    return old_onfreezefn and old_onfreezefn(inst) or nil
+                local freezable = inst.components.freezable
+                if freezable then
+                    local old_onfreezefn = freezable.onfreezefn
+                    freezable.onfreezefn = function(inst, ...)
+                        inst.components.health:SetInvincible(false)
+                        return old_onfreezefn and old_onfreezefn(inst, ...) or nil
+                    end
                 end
             end
         end
@@ -627,16 +630,15 @@ if cfg.SPIDERS_NOTRAP > 0 or cfg.SPIDERS_DEADLEADER > 0 or cfg.SPIDERS_MASS > 0 
 
     for _, v in pairs({"spider", "spider_warrior", "spider_hider", "spider_spitter", "spider_dropper", "spider_moon", "spider_healer", "spider_water"}) do
         AddPrefabPostInit(v, function(inst)
-            if inst.components.follower then
-                local old_leadfn = inst.components.follower.OnChangedLeader
-                inst.components.follower.OnChangedLeader = function(inst, new_leader, prev_leader, ...)
-                    spider_leadfn(inst, new_leader, prev_leader)
-                    return old_leadfn and old_leadfn(inst, new_leader, prev_leader, ...) or nil
-                end
+            local f = inst.components.follower
+            local old_leadfn = f.OnChangedLeader
+            f.OnChangedLeader = function(inst, new_leader, prev_leader, ...)
+                spider_leadfn(inst, new_leader, prev_leader)
+                return old_leadfn and old_leadfn(inst, new_leader, prev_leader, ...) or nil
             end
 
             if cfg.SPIDERS_DEADLEADER > 0 then
-                inst.components.follower.keepdeadleader = true
+                f.keepdeadleader = true
             end
         end)
     end
@@ -708,11 +710,15 @@ if cfg.PIGMERMBUN_NOTRAP > 0 or cfg.PIGMERMBUN_LOYALTY > 0 or cfg.PIGMERMBUN_DEA
             end
         end)
 
-        --surgery_table(c_select(), {{12,1,"target = followleaderfn"}})
+        --surgery_table(c_select(), {{1,2,18,1,"target = followleaderfn"}})
         local merm_surgery =
         {name = "Priority", child =
-            {num = 12, name = "ChattyNode", child =
-                {num = 1, name = "Follow", target = followleaderfn}
+            {num = 1, name = "Parallel", child =
+                {num = 2, name = "Priority", child =
+                    {num = 18, name = "ChattyNode", child =
+                        {num = 1, name = "Follow", target = followleaderfn}
+                    }
+                }
             }
         }
 
@@ -723,11 +729,15 @@ if cfg.PIGMERMBUN_NOTRAP > 0 or cfg.PIGMERMBUN_LOYALTY > 0 or cfg.PIGMERMBUN_DEA
             end
         end)
 
-        --surgery_table(c_select(), {{9,1,"target = followleaderfn"}})
+        --surgery_table(c_select(), {{1,2,14,1,"target = followleaderfn"}})
         local mermguard_surgery =
         {name = "Priority", child =
-            {num = 9, name = "ChattyNode", child =
-                {num = 1, name = "Follow", target = followleaderfn}
+            {num = 1, name = "Parallel", child =
+                {num = 2, name = "Priority", child =
+                    {num = 14, name = "ChattyNode", child =
+                        {num = 1, name = "Follow", target = followleaderfn}
+                    }
+                }
             }
         }
 
@@ -738,10 +748,10 @@ if cfg.PIGMERMBUN_NOTRAP > 0 or cfg.PIGMERMBUN_LOYALTY > 0 or cfg.PIGMERMBUN_DEA
             end
         end)
 
-        --surgery_table(c_select(), {{10,"target = followleaderfn"}})
+        --surgery_table(c_select(), {{11,"target = followleaderfn"}})
         local bunnyman_surgery =
         {name = "Priority", child =
-            {num = 10, name = "Follow", target = followleaderfn}
+            {num = 11, name = "Follow", target = followleaderfn}
         }
 
         AddBrainPostInit("bunnymanbrain", function(self)
@@ -752,22 +762,22 @@ if cfg.PIGMERMBUN_NOTRAP > 0 or cfg.PIGMERMBUN_LOYALTY > 0 or cfg.PIGMERMBUN_DEA
         end)
     end
 
-    for _, v in pairs({"pigman", "merm", "mermguard", "bunnyman"}) do
+    for _, v in pairs({"pigman", "bunnyman", "merm", "mermguard",
+        "merm_shadow", "merm_lunar", "mermguard_shadow", "mermguard_lunar"}) do
         AddPrefabPostInit(v, function(inst)
-            if inst.components.follower then
-                local old_leadfn = inst.components.follower.OnChangedLeader
-                inst.components.follower.OnChangedLeader = function(inst, new_leader, prev_leader, ...)
-                    pigmermbun_leadfn(inst, new_leader, prev_leader)
-                    return old_leadfn and old_leadfn(inst, new_leader, prev_leader, ...) or nil
-                end
+            local f = inst.components.follower
+            local old_leadfn = f.OnChangedLeader
+            f.OnChangedLeader = function(inst, new_leader, prev_leader, ...)
+                pigmermbun_leadfn(inst, new_leader, prev_leader)
+                return old_leadfn and old_leadfn(inst, new_leader, prev_leader, ...) or nil
+            end
 
-                if cfg.PIGMERMBUN_LOYALTY > 0 then
-                    inst:ListenForEvent("gainloyalty", function(inst) inst:DoTaskInTime(0, cancel_loyaltasks) end)
-                end
+            if cfg.PIGMERMBUN_LOYALTY > 0 then
+                f.neverexpire = true
+            end
 
-                if cfg.PIGMERMBUN_DEADLEADER > 0 then
-                    inst.components.follower.keepdeadleader = true
-                end
+            if cfg.PIGMERMBUN_DEADLEADER > 0 then
+                f.keepdeadleader = true
             end
         end)
     end
@@ -833,32 +843,31 @@ if cfg.ROCKY_LOYALTY > 0 or cfg.ROCKY_DEADLEADER > 0 or cfg.ROCKY_SPEED > 0 or c
     end
 
     AddPrefabPostInit("rocky", function(inst)
-        if inst.components.follower then
-            local old_leadfn = inst.components.follower.OnChangedLeader
-            inst.components.follower.OnChangedLeader = function(inst, new_leader, prev_leader, ...)
-                rocky_leadfn(inst, new_leader, prev_leader)
-                return old_leadfn and old_leadfn(inst, new_leader, prev_leader, ...) or nil
-            end
+        local f = inst.components.follower
+        local old_leadfn = f.OnChangedLeader
+        f.OnChangedLeader = function(inst, new_leader, prev_leader, ...)
+            rocky_leadfn(inst, new_leader, prev_leader)
+            return old_leadfn and old_leadfn(inst, new_leader, prev_leader, ...) or nil
+        end
 
-            if cfg.ROCKY_LOYALTY > 0 then --this also protects against epicscare due to a loyalty percent check in rockybrain
-                inst:ListenForEvent("gainloyalty", function(inst) inst:DoTaskInTime(0, cancel_loyaltasks) end)
-            end
+        if cfg.ROCKY_LOYALTY > 0 then
+            f.neverexpire = true --this also protects against epicscare due to a loyalty percent check in rockybrain
+        end
 
-            if cfg.ROCKY_DEADLEADER > 0 then
-                inst.components.follower.keepdeadleader = true
-            end
+        if cfg.ROCKY_DEADLEADER > 0 then
+            f.keepdeadleader = true
+        end
 
-            if cfg.ROCKY_SPEED > 0 and inst.components.scaler then
-                local old_scalefn = inst.components.scaler.OnApplyScale
-                inst.components.scaler.OnApplyScale = function(inst, scale, ...)
-                    if old_scalefn then
-                        old_scalefn(inst, scale, ...)
-                    end
+        if cfg.ROCKY_SPEED > 0 and inst.components.scaler then
+            local old_scalefn = inst.components.scaler.OnApplyScale
+            inst.components.scaler.OnApplyScale = function(inst, scale, ...)
+                if old_scalefn then
+                    old_scalefn(inst, scale, ...)
+                end
 
-                    local leader = inst.components.follower.leader
-                    if leader and leader:HasTag("player") then
-                        inst.components.locomotor.walkspeed = cfg.ROCKY_SPEED / scale
-                    end
+                local leader = inst.components.follower.leader
+                if leader and leader:HasTag("player") then
+                    inst.components.locomotor.walkspeed = cfg.ROCKY_SPEED / scale
                 end
             end
         end
@@ -934,16 +943,15 @@ if cfg.SMALLBIRD_DEADLEADER > 0 or cfg.SMALLBIRD_MASS > 0 then
 
     for _, v in pairs({"smallbird", "teenbird"}) do
         AddPrefabPostInit(v, function(inst)
-            if inst.components.follower then
-                local old_leadfn = inst.components.follower.OnChangedLeader
-                inst.components.follower.OnChangedLeader = function(inst, new_leader, prev_leader, ...)
-                    smallbird_leadfn(inst, new_leader, prev_leader)
-                    return old_leadfn and old_leadfn(inst, new_leader, prev_leader, ...) or nil
-                end
+            local f = inst.components.follower
+            local old_leadfn = f.OnChangedLeader
+            f.OnChangedLeader = function(inst, new_leader, prev_leader, ...)
+                smallbird_leadfn(inst, new_leader, prev_leader)
+                return old_leadfn and old_leadfn(inst, new_leader, prev_leader, ...) or nil
+            end
 
-                if cfg.SMALLBIRD_DEADLEADER > 0 then
-                    inst.components.follower.keepdeadleader = true
-                end
+            if cfg.SMALLBIRD_DEADLEADER > 0 then
+                f.keepdeadleader = true
             end
         end)
     end

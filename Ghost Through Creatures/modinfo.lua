@@ -1,5 +1,5 @@
 
-name = "Ghost Through Creatures"
+name = "Ghost Through Creatures" --formerly "Ghost Fly Over Abyss"
 description = "Allow player ghosts to fly through other creatures."
 author = "Bumber"
 version = "1.2"

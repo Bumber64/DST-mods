@@ -2,7 +2,7 @@
 name = "Companion Configurator" --formerly "Invincible Friendly Fruit Fly"
 description = "Modify follower mass, remove loyalty loss, and make them not trigger traps. Make non-combat followers invincible or non-targetable."
 author = "Bumber"
-version = "2.7"
+version = "2.8"
 forumthread = ""
 
 icon_atlas = "modicon.xml"
@@ -349,7 +349,7 @@ configuration_options =
     },
     {
         name = "pigmermbun_loyalty",
-        label = "Pig/Merm/Bun No Loyaly Timer",
+        label = "Pig/Merm/Bun No Loyalty Timer",
         hover = "Should pigs, merms, and bunnymen lose loyalty over time?",
         options =
         {
@@ -386,7 +386,7 @@ configuration_options =
     divider,
     {
         name = "rocky_loyalty",
-        label = "Rock Lobster No Loyaly Timer",
+        label = "Rock Lobster No Loyalty Timer",
         hover = "Should rock lobsters lose loyalty over time?\n(Disabling timer also prevents loyalty loss when scared by bosses.)",
         options =
         {

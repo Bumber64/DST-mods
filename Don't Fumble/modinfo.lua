@@ -2,7 +2,7 @@
 name = "Don't Fumble"
 description = "Prevent players from fumbling tools and weapons. Also prevent monsters from smashing and stealing. Configurable."
 author = "Bumber"
-version = "1.7"
+version = "1.8"
 forumthread = ""
 
 icon_atlas = "modicon.xml"
@@ -32,7 +32,7 @@ configuration_options =
     {
         name = "wet_nofumble",
         label = "No Wetness Fumble",
-        hover = "Prevent players from dropping wet equipped tools. Allow protecting inventory from drowning (including item held by mouse, which strong grip doesn't.)",
+        hover = "Prevent players from dropping wet equipped tools. Allow protecting inventory from drowning (including item held by mouse, which strong grip doesn't).",
         options =
         {
             {description = "Default", data = 0, hover = ""},
@@ -44,7 +44,7 @@ configuration_options =
     {
         name = "cutless_nosteal",
         label = "Non-player Cutless Stealing",
-        hover = "Protect targets from item theft by cutlesses held by non-players\n(such as powder monkeys.)",
+        hover = "Protect targets from item theft by cutlesses held by non-players\n(such as powder monkeys).",
         options =
         {
             {description = "Default", data = 0, hover = ""},
@@ -201,7 +201,7 @@ configuration_options =
     {
         name = "splumonkey_nochest",
         label = "Splumonkey Rummaging",
-        hover = "Prevent splumonkeys from messing with your containers (including Hutch,) which results in items dropped to the ground.",
+        hover = "Prevent splumonkeys from messing with your containers (including Hutch), which results in items dropped to the ground.",
         options =
         {
             {description = "Default", data = 0, hover = ""},

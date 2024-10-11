@@ -5,6 +5,7 @@ if not _G.TheNet:GetIsServer() then
 end
 
 local TheSim = _G.TheSim
+local FRAMES = _G.FRAMES
 local EQUIPSLOTS = _G.EQUIPSLOTS
 local ACTIONS = _G.ACTIONS
 local BufferedAction = _G.BufferedAction
@@ -55,12 +56,12 @@ local cfg_name =
 }
 
 local cfg = {}
-for _, s in ipairs(cfg_name) do
+for _,s in ipairs(cfg_name) do
     local n = GetModConfigData(s)
     cfg[string.upper(s)] = type(n) == "number" and n or 0
 end
 
-local cfg_name = nil --don't need table anymore
+cfg_name = nil --don't need table anymore
 
 -------------------------------------------
 ------------------ Debug ------------------
@@ -106,7 +107,7 @@ if cfg.WET_NOFUMBLE > 0 then
         end
 
         local DWT_INDEX = 1 --DropWetTool should be at this index in OnAttackOther, don't search entire functions
-        for _, fn in ipairs(t) do
+        for _,fn in ipairs(t) do
             local name, val = _G.debug.getupvalue(fn, DWT_INDEX)
             if name and name == "DropWetTool" then
                 inst:RemoveEventCallback("working", val) --remove working listener for DropWetTool
@@ -145,13 +146,14 @@ if cfg.WET_NOFUMBLE > 0 then
 end
 
 if cfg.CUTLESS_NOSTEAL > 0 or cfg.CUTLESS_PLAYER > 0 then --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
-    local function OnAttack(inst, attacker, target, oldfn)
+    local function OnAttack(oldfn, inst, attacker, target)
         local nosteal_level = attacker:HasTag("player") and cfg.CUTLESS_PLAYER or cfg.CUTLESS_NOSTEAL
 
         if not (nosteal_level > 2 or
             (nosteal_level > 0 and target:HasTag("player")) or
             (nosteal_level > 1 and is_player_follower(target))) then
-                oldfn(inst, attacker, target)
+
+            oldfn(inst, attacker, target)
         end
     end
 
@@ -159,7 +161,7 @@ if cfg.CUTLESS_NOSTEAL > 0 or cfg.CUTLESS_PLAYER > 0 then --0:Default, 1:Protect
         local oldattackfn = inst.components.weapon.onattack
         if oldattackfn then
             inst.components.weapon.onattack = function(inst, attacker, target)
-                OnAttack(inst, attacker, target, oldattackfn)
+                OnAttack(oldattackfn, inst, attacker, target)
             end
         end
     end)
@@ -172,7 +174,7 @@ end
 if cfg.MOOSE_NOFUMBLE > 0 then
     local function no_disarm(self)
         for _,v in ipairs(self.states.disarm.timeline) do
-            if v.time == 15*_G.FRAMES then --disarm fn located here
+            if v.time == 15*FRAMES then --disarm fn located here
                 v.fn = empty_fn
                 return
             end
@@ -198,11 +200,13 @@ if cfg.BEARGER_NOFUMBLE > 0 or cfg.BEARGER_NOSMASH > 1 then
             other.components.workable and
             other.components.workable:CanBeWorked() and
             other.components.workable.action ~= ACTIONS.NET then
-                local speed_sq = _G.Vector3(inst.Physics:GetVelocity()):LengthSq()
-                if speed_sq >= 1 and (speed_sq >= ANGRYWALK_SQ or other:HasTag("tree") or other:HasTag("boulder")) and
-                    not inst.recentlycharged[other] then
-                        inst:DoTaskInTime(2*_G.FRAMES, my_OnDestroyOther, other)
-                end
+
+            local speed_sq = _G.Vector3(inst.Physics:GetVelocity()):LengthSq()
+            if speed_sq >= 1 and (speed_sq >= ANGRYWALK_SQ or other:HasTag("tree") or other:HasTag("boulder")) and
+                not inst.recentlycharged[other] then
+
+                inst:DoTaskInTime(2*FRAMES, my_OnDestroyOther, other)
+            end
         end
     end
 
@@ -260,7 +264,7 @@ if cfg.BEARGER_NOSTEAL > 0 or cfg.BEARGER_NOSMASH > 0 then
     end
 
     local SEE_STRUCTURE_DIST = 30 --defaults from beargerbrain.lua
-    local NO_TAGS = {"FX", "NOCLICK", "DECOR", "INLIMBO", "burnt"}
+    local NO_TAGS = {"FX", "NOCLICK", "DECOR", "INLIMBO", "burnt", "outofreach" }
     local PICKABLE_FOODS = {berries = true, cave_banana = true, carrot = true, red_cap = true, blue_cap = true, green_cap = true}
 
     local function StealFoodAction(inst) --limit actions based on config, allow stealing from chests instead of hammering
@@ -272,7 +276,7 @@ if cfg.BEARGER_NOSTEAL > 0 or cfg.BEARGER_NOSMASH > 0 then
         local ents = TheSim:FindEntities(x, y, z, SEE_STRUCTURE_DIST, nil, NO_TAGS)
         local targets = {}
 
-        for i, item in ipairs(ents) do
+        for _,item in ipairs(ents) do
             if item:IsValid() and item:IsOnValidGround() then
                 if item.components.stewer then
                     if targets.stewer == nil and item.components.stewer:IsDone() then
@@ -388,22 +392,30 @@ end
 -------------------------------------------
 
 if cfg.FROG_NOSTEAL > 0 then --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
-    local function OnHitOther(inst, other, damage, oldfn)
+    local function OnHitOther(oldfn, inst, other, ...)
         if not (cfg.FROG_NOSTEAL > 2 or
-            (cfg.FROG_NOSTEAL > 0 and target:HasTag("player")) or
-            (cfg.FROG_NOSTEAL > 1 and is_player_follower(target))) then
-                oldfn(inst, other, damage)
+            (cfg.FROG_NOSTEAL > 0 and other:HasTag("player")) or
+            (cfg.FROG_NOSTEAL > 1 and is_player_follower(other))) then
+
+            oldfn(inst, other, ...)
+        elseif inst.islunar then --just add groginess
+            local grog = other.components.grogginess
+            if grog and (grog.grog_amount + TUNING.LUNARFROG_ONATTACK_GROGGINESS) < grog:GetResistance() then
+                grog:AddGrogginess(TUNING.LUNARFROG_ONATTACK_GROGGINESS)
+            end
         end
     end
 
-    AddPrefabPostInit("frog", function(inst)
-        local oldhitfn = inst.components.combat.onhitotherfn
-        if oldhitfn then
-            inst.components.combat.onhitotherfn = function(inst, other, damage)
-                OnHitOther(inst, other, damage, oldhitfn)
+    for _,v in pairs({"frog", "lunarfrog"}) do
+        AddPrefabPostInit(v, function(inst)
+            local oldhitfn = inst.components.combat.onhitotherfn
+            if oldhitfn then
+                inst.components.combat.onhitotherfn = function(inst, other, ...)
+                    OnHitOther(oldhitfn, inst, other, ...)
+                end
             end
-        end
-    end)
+        end)
+    end
 end
 
 -------------------------------------------
@@ -424,20 +436,24 @@ end
 
 if cfg.PMONKEY_NOSMASH > 0 or cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GROUND > 1 then
 
-    local function reversemastcheck(ent) --tidied up from powdermonkeybrain.lua
-        return ent.components.mast and ent.components.mast.inverted and ent:HasTag("saillowered") and not ent:HasTag("sail_transitioning")
+    local function reversemastcheck(ent) --from powdermonkeybrain.lua
+        return ent.components.mast and ent.components.mast.inverted and
+            ent:HasTag("saillowered") and not ent:HasTag("sail_transitioning")
     end
 
-    local function anchorcheck(ent) --tidied up from powdermonkeybrain.lua
-        return ent.components.anchor and ent:HasTag("anchor_raised") and not ent:HasTag("anchor_transitioning")
+    local function anchorcheck(ent) --from powdermonkeybrain.lua
+        return ent.components.anchor and ent:HasTag("anchor_raised") and
+            not ent:HasTag("anchor_transitioning")
     end
 
     local DOTINKER_MUST_HAVE = {"structure"}
     local function DoTinker(inst) --limit targets based on config, streamline function
         if cfg.PMONKEY_NOSMASH > 2 or --0:Default, 1:Mast, 2:NoEmptyChest, 3:NoTinker
             inst.sg:HasStateTag("busy") or
-            inst.components.timer and inst.components.timer:TimerExists("reactiondelay") then
-                return
+            inst.components.timer and
+            inst.components.timer:TimerExists("reactiondelay") then
+
+            return
         end
 
         local bc = inst.components.crewmember
@@ -449,7 +465,7 @@ if cfg.PMONKEY_NOSMASH > 0 or cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GRO
         local x, y, z = inst.Transform:GetWorldPosition()
         local ents = TheSim:FindEntities(x, y, z, 10, DOTINKER_MUST_HAVE)
 
-        for i, ent in ipairs(ents) do
+        for _,ent in ipairs(ents) do
             if anchorcheck(ent) then
                 inst.tinkertarget = ent
                 bc:reserveinkertarget(ent)
@@ -467,11 +483,12 @@ if cfg.PMONKEY_NOSMASH > 0 or cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GRO
             guy:HasTag("monkey") or not inst.components.combat:CanTarget(guy) or
             (cfg.PMONKEY_NOSTEAL > 0 and guy:HasTag("player")) or --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
             (cfg.PMONKEY_NOSTEAL > 1 and is_player_follower(guy)) then
-                return
+
+            return
         end --this fn isn't called when cfg.PMONKEY_NOSTEAL > 2
 
         local target_ok
-        for k, v in pairs(guy.components.inventory.itemslots) do
+        for _,v in pairs(guy.components.inventory.itemslots) do
             if not v:HasTag("nosteal") then
                 target_ok = true
                 break
@@ -483,18 +500,22 @@ if cfg.PMONKEY_NOSMASH > 0 or cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GRO
             local instplatform = inst:GetCurrentPlatform()
 
             if targetplatform and instplatform then
-                local radius = targetplatform.components.walkableplatform.platform_radius + instplatform.components.walkableplatform.platform_radius + 4
+                local radius = targetplatform.components.walkableplatform.platform_radius +
+                    instplatform.components.walkableplatform.platform_radius + 4
                 return targetplatform:GetDistanceSqToInst(instplatform) <= radius * radius
             end
         end
     end
 
     local ITEM_MUST = {"_inventoryitem"} --defaults from powdermonkeybrain.lua
-    local ITEM_MUSTNOT = {"INLIMBO", "NOCLICK", "knockbackdelayinteraction", "catchable", "fire", "minesprung", "mineactive", "spider", "nosteal", "irreplaceable"}
+    local ITEM_MUSTNOT = {"INLIMBO", "NOCLICK", "knockbackdelayinteraction", "catchable",
+        "fire", "minesprung", "mineactive", "spider", "nosteal", "irreplaceable"}
     local RETARGET_MUST_TAGS = {"_combat"}
     local RETARGET_CANT_TAGS = {"playerghost"}
     local RETARGET_ONEOF_TAGS = {"character", "monster"}
-    local CHEST_MUST_HAVE = {"chest"}
+
+    local CHEST_MUST_TAGS = { "chest", "_container" }
+    local CHEST_CANT_TAGS = { "outofreach" }
 
     local function ShouldSteal(inst) --limit targets based on config, streamline function
         if inst.sg:HasStateTag("busy") or inst.components.timer:TimerExists("hit") then
@@ -506,32 +527,33 @@ if cfg.PMONKEY_NOSMASH > 0 or cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GRO
 
         if inst.components.inventory:IsFull() or
             inst.components.combat.target and not inst.components.combat:InCooldown() then
-                return
+
+            return
         end
 
         local crewboat = inst.components.crewmember and inst.components.crewmember.boat
         local bc = crewboat and crewboat.components.boatcrew
-        local instplatform = inst:GetCurrentPlatform()
+        local current_platform = inst:GetCurrentPlatform()
 
-        if not (bc and bc.target) and instplatform and instplatform == crewboat then --on own boat and no boat target
-            return
+        if not (bc and bc.target) and current_platform and current_platform == crewboat then
+            return --on own boat and no boat target
         end
 
         local x, y, z = inst.Transform:GetWorldPosition()
 
         if cfg.PMONKEY_NOSTEAL_GROUND < 3 then --0:Default, 1:NoWearHat, 2:Misc, 3:Bananas
             local ents = TheSim:FindEntities(x, y, z, 15, ITEM_MUST, ITEM_MUSTNOT)
-            for i, ent in ipairs(ents) do
+            for _,ent in ipairs(ents) do
                 local inv_item = ent.components.inventoryitem
                 if inv_item and inv_item.canbepickedup and inv_item.cangoincontainer and
                     not ent.components.sentientaxe and not inv_item:IsHeld() and not ent:IsOnWater() then
-                        if ent.prefab == "cave_banana" or ent.prefab == "cave_banana_cooked" then
-                            inst.itemtosteal = ent
-                            return BufferedAction(inst, ent, ACTIONS.PICKUP) --steal banana
-                        elseif cfg.PMONKEY_NOSTEAL_GROUND < 2 and
-                            inst.itemtosteal == nil then
-                                inst.itemtosteal = ent --steal this if no banana
-                        end
+
+                    if ent.prefab == "cave_banana" or ent.prefab == "cave_banana_cooked" then
+                        inst.itemtosteal = ent
+                        return BufferedAction(inst, ent, ACTIONS.PICKUP) --steal banana
+                    elseif cfg.PMONKEY_NOSTEAL_GROUND < 2 and inst.itemtosteal == nil then
+                        inst.itemtosteal = ent --steal this if no banana
+                    end
                 end
             end
         end
@@ -541,11 +563,13 @@ if cfg.PMONKEY_NOSMASH > 0 or cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GRO
         end
 
         if bc and cfg.PMONKEY_NOSMASH < 2 then --0:Default, 1:Mast, 2:NoEmptyChest, 3:NoTinker
-            local ents = TheSim:FindEntities(x, y, z, 10, CHEST_MUST_HAVE)
-            for i, ent in ipairs(ents) do
-                if ent.components.container and not ent.components.container:IsEmpty() and
-                    not bc:checktinkertarget(ent) then
-                        return BufferedAction(inst, ent, ACTIONS.EMPTY_CONTAINER)
+            local chests = TheSim:FindEntities(x, y, z, 10, CHEST_MUST_TAGS, CHEST_CANT_TAGS)
+            for _,chest in ipairs(chests) do
+                if chest.components.container and
+                    not chest.components.container:IsEmpty() and
+                    not bc:checktinkertarget(chest) then
+
+                    return BufferedAction(inst, chest, ACTIONS.EMPTY_CONTAINER)
                 end
             end
         end
@@ -560,7 +584,9 @@ if cfg.PMONKEY_NOSMASH > 0 or cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GRO
             q = q and q:TimerExists("right_of_passage")
 
             if not q then
-                local target = _G.FindEntity(inst, 10, function(guy) return pmonkey_targetfn(inst, guy) end, RETARGET_MUST_TAGS, RETARGET_CANT_TAGS, RETARGET_ONEOF_TAGS)
+                local target = _G.FindEntity(inst, 10,
+                    function(guy) return pmonkey_targetfn(inst, guy) end,
+                    RETARGET_MUST_TAGS, RETARGET_CANT_TAGS, RETARGET_ONEOF_TAGS)
                 if target then
                     return BufferedAction(inst, target, ACTIONS.STEAL)
                 end
@@ -596,21 +622,22 @@ if cfg.SLURPER_NOSTEAL == 1 then --0:Default, 1:Unequip, 2:Protect
         local target = inst.components.combat.target
         if target and target:IsValid() and inst:IsNear(target, 2) and
             inst.HatTest and inst:HatTest(target) then
-                local oldhat = target.components.inventory:GetEquippedItem(EQUIPSLOTS.HEAD)
-                if oldhat then
-                    if target:HasTag("player") then
-                        target.components.inventory:GiveItem(oldhat) --give or drop
-                    else --don't get stuck in follower inventory
-                        target.components.inventory:DropItem(oldhat)
-                    end
+
+            local oldhat = target.components.inventory:GetEquippedItem(EQUIPSLOTS.HEAD)
+            if oldhat then
+                if target:HasTag("player") then
+                    target.components.inventory:GiveItem(oldhat) --give or drop
+                else --don't get stuck in follower inventory
+                    target.components.inventory:DropItem(oldhat)
                 end
-                target.components.inventory:Equip(inst)
+            end
+            target.components.inventory:Equip(inst)
         end
     end
 
     local function no_drop_hat(self)
         for _,v in ipairs(self.states.headslurp.timeline) do
-            if v.time == 24*_G.FRAMES then --equip fn located here
+            if v.time == 24*FRAMES then --equip fn located here
                 v.fn = equip_fn
                 return
             end
@@ -627,7 +654,8 @@ elseif cfg.SLURPER_NOSTEAL > 1 then
             (target.components.inventory.isopen or
             target:HasTag("pig") or target:HasTag("manrabbit") or target:HasTag("equipmentmodel") or
             (inst._loading and target:HasTag("player"))) then
-                return not target.components.inventory:GetEquippedItem(EQUIPSLOTS.HEAD)
+
+            return not target.components.inventory:GetEquippedItem(EQUIPSLOTS.HEAD)
         end
         return false
     end
@@ -645,7 +673,7 @@ if cfg.SLURTLE_NOSTEAL > 0 then
 
     local SEE_FOOD_DIST = 13 --defaults from slurtlebrain.lua and slurtlesnailbrain.lua
     local STEALFOOD_CANT_TAGS = {"playerghost", "fire", "burnt", "INLIMBO", "outofreach"}
-    local STEALFOOD_ONEOF_TAGS = {"player"} --removed "_container" since we wouldn't be here otherwise
+    local STEALFOOD_ONEOF_TAGS = {"player"} --removed "_container" since we're always protecting chests
 
     local function StealFoodAction(inst) --limit targets based on config
         if cfg.SLURTLE_NOSTEAL > 1 or inst.sg:HasStateTag("busy") then --0:Default, 1:Containers, 2:Players
@@ -655,7 +683,7 @@ if cfg.SLURTLE_NOSTEAL > 0 then
         local x, y, z = inst.Transform:GetWorldPosition()
         local ents = TheSim:FindEntities(x, y, z, SEE_FOOD_DIST, nil, STEALFOOD_CANT_TAGS, STEALFOOD_ONEOF_TAGS)
 
-        for i, v in ipairs(ents) do
+        for _,v in ipairs(ents) do
             if not v:HasDebuff("healingsalve_acidbuff") then
                 local inv = v.components.inventory
                 if inv and v:IsOnValidGround() then
@@ -681,7 +709,8 @@ if cfg.SLURTLE_NOSTEAL > 0 then
                         local itemtosteal = validfood[math.random(1, #validfood)]
                         if itemtosteal then
                             local act = BufferedAction(inst, itemtosteal, ACTIONS.STEAL)
-                            act.validfn = function() return (itemtosteal.components.inventoryitem and itemtosteal.components.inventoryitem:IsHeld()) end
+                            act.validfn = function() return (itemtosteal.components.inventoryitem and
+                                itemtosteal.components.inventoryitem:IsHeld()) end
                             act.attack = true
                             return act
                         end
@@ -726,15 +755,8 @@ if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_NOCHEST > 0 then
     local NO_PICKUP_TAGS = _G.deepcopy(NO_LOOTING_TAGS)
     table.insert(NO_PICKUP_TAGS, "_container")
 
-    local ValidFoodsToPick = --modified from monkeybrain.lua for efficiency
-    {
-        berries = true,
-        cave_banana = true,
-        carrot = true,
-        red_cap = true,
-        blue_cap = true,
-        green_cap = true,
-    }
+    --modified from monkeybrain.lua, efficient like beargerbrain.lua
+    local ValidFoodsToPick = {berries = true, cave_banana = true, carrot = true, red_cap = true, blue_cap = true, green_cap = true}
 
     local function EatFoodAction(inst) --limit targets based on config, streamline function
         if inst.sg:HasStateTag("busy") or
@@ -757,29 +779,35 @@ if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_NOCHEST > 0 then
         local ents = TheSim:FindEntities(x, y, z, SEE_ITEM_DISTANCE, nil, NO_PICKUP_TAGS, PICKUP_ONEOF_TAGS)
 
         local targets = {} --do in one pass like bearger
-        local wants_hat = cfg.SPLUMONKEY_NOSTEAL < 2 and inst.components.inventory and not inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HEAD)
+        local wants_hat = cfg.SPLUMONKEY_NOSTEAL < 2 and inst.components.inventory and
+            not inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HEAD)
 
-        for _, item in ipairs(ents) do
+        for _,item in ipairs(ents) do
             if wants_hat and item.components.equippable and --Hats
                 item.components.equippable.equipslot == EQUIPSLOTS.HEAD and
                 item.components.inventoryitem and
                 item.components.inventoryitem.canbepickedup and
                 item:IsOnValidGround() then
-                    return BufferedAction(inst, item, ACTIONS.PICKUP)
+
+                return BufferedAction(inst, item, ACTIONS.PICKUP)
             elseif not targets.food and item:GetTimeAlive() > 8 and --Food
                 item.components.inventoryitem and
                 item.components.inventoryitem.canbepickedup and
                 inst.components.eater:CanEat(item) and
                 item:IsOnValidGround() then
-                    targets.food = item
+
+                targets.food = item
             elseif cfg.SPLUMONKEY_NOSTEAL < 3 then --Pickables (and pre-RWYS crops)
                 if item.components.pickable then
                     if not targets.pickable and item.components.pickable.caninteractwith and
                         item.components.pickable:CanBePicked() and
                         (item.prefab == "worm" or ValidFoodsToPick[item.components.pickable.product]) then
-                            targets.pickable = item
+
+                        targets.pickable = item
                     end
-                elseif not targets.crop and item.components.crop and item.components.crop:IsReadyForHarvest() then
+                elseif not targets.crop and item.components.crop and
+                    item.components.crop:IsReadyForHarvest() then
+
                     targets.crop = item
                 end
             end
@@ -802,7 +830,8 @@ if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_NOCHEST > 0 then
     local AnnoyLeader = empty_fn
 
     if cfg.SPLUMONKEY_NOCHEST == 0 or cfg.SPLUMONKEY_NOSTEAL == 0 then --allow some stealing
-        local ANNOY_ONEOF_TAGS = { "_inventoryitem", "_container" }
+
+        local ANNOY_ONEOF_TAGS = { "_inventoryitem", "_container" } --defaults from monkeybrain.lua
         local ANNOY_ALT_MUST_TAG = { "_inventoryitem" }
         local CANT_PICKUP_TAGS = {"heavy", "irreplaceable", "outofreach"}
 
@@ -818,12 +847,13 @@ if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_NOCHEST > 0 then
                 TheSim:FindEntities(mx, 0, mz, 30, ANNOY_ALT_MUST_TAG, NO_PICKUP_TAGS)
 
             if cfg.SPLUMONKEY_NOSTEAL == 0 then --Misc not protected
-                for _, v in ipairs(ents) do --recent drops
+                for _,v in ipairs(ents) do --recent drops
                     if v.components.inventoryitem and
                         v.components.inventoryitem.canbepickedup and
                         not v.components.container and
                         v:GetTimeAlive() < 5 then
-                            return BufferedAction(inst, v, ACTIONS.PICKUP)
+
+                        return BufferedAction(inst, v, ACTIONS.PICKUP)
                     end
                 end
 
@@ -834,25 +864,27 @@ if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_NOCHEST > 0 then
                         not tar.components.container and not tar:HasAnyTag(CANT_PICKUP_TAGS) and
                         not (tar.components.burnable and tar.components.burnable:IsBurning()) and
                         not (tar.components.projectile and tar.components.projectile.cancatch and tar.components.projectile.target) then
-                            local tx, ty, tz = tar.Transform:GetWorldPosition()
-                            return _G.distsq(px, pz, tx, tz) > _G.distsq(mx, mz, tx, tz) and BufferedAction(inst, tar, ACTIONS.PICKUP) or nil
+
+                        local tx, ty, tz = tar.Transform:GetWorldPosition()
+                        return _G.distsq(px, pz, tx, tz) > _G.distsq(mx, mz, tx, tz) and BufferedAction(inst, tar, ACTIONS.PICKUP) or nil
                     end
                 end
             end
 
             if lootchests then
                 local items = {}
-                for _, v in ipairs(ents) do
+                for _,v in ipairs(ents) do
                     if v.components.container and
                         v.components.container.canbeopened and
                         not v.components.container:IsOpen() and
                         v:GetDistanceSqToPoint(px, 0, pz) < 225 then
-                            for k = 1, v.components.container.numslots do
-                                local item = v.components.container.slots[k]
-                                if item then
-                                    table.insert(items, item)
-                                end
+
+                        for k = 1, v.components.container.numslots do
+                            local item = v.components.container.slots[k]
+                            if item then
+                                table.insert(items, item)
                             end
+                        end
                     end
                 end
 

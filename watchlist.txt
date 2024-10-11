@@ -46,6 +46,7 @@ prefabs/bunnyman.lua ------------ COMP / LOOT
 prefabs/chester.lua ------------- COMP
 prefabs/deciduoustrees.lua ------ BRCH
 prefabs/firesuppressor.lua ------ ICEF
+prefabs/frog.lua ---------------- FMBL
 prefabs/fruitfly.lua ------------ COMP
 prefabs/glommer.lua ------------- COMP
 prefabs/hutch.lua --------------- COMP

@@ -648,16 +648,6 @@ end
 ------- Pigs, Merms, and Bunnymen ------
 ----------------------------------------
 
-local function cancel_loyaltasks(inst) --cancel the tasks that make followers stop following based on timer
-    local f = inst.components.follower
-    f:CancelLoyaltyTask()
-    f.cached_player_leader_timeleft = nil
-    if f.cached_player_leader_task then
-        f.cached_player_leader_task:Cancel()
-        f.cached_player_leader_task = nil
-    end
-end
-
 if cfg.PIGMERMBUN_NOTRAP > 0 or cfg.PIGMERMBUN_LOYALTY > 0 or cfg.PIGMERMBUN_DEADLEADER > 0 or cfg.PIGMERMBUN_MASS > 0 then
     local function pigmermbun_leadfn(inst, new_leader, prev_leader)
         local player_new = (new_leader and new_leader:HasTag("player")) and new_leader

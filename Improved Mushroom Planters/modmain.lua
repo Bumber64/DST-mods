@@ -9,32 +9,39 @@ if not _G.TheNet:GetIsServer() then
     return
 end
 
-local UpvalueHacker = require("tools/upvaluehacker") --Rezecib's upvalue hacker
-
 local function modprint(s)
     print("[Improved Mushroom Planters] "..s)
 end
+
+local HackUtil = require("tools/hackutil")
 
 -------------------------------------------
 ---------------- Settings -----------------
 -------------------------------------------
 
-local MAX_HARVESTS = GetModConfigData("max_harvests") --0: default, -1: unlimited
-if MAX_HARVESTS > 0 then
-    TUNING.MUSHROOMFARM_MAX_HARVESTS = MAX_HARVESTS
-end
-
-local SNOW_GROW = GetModConfigData("snow_grow") --grow or pause in snow
-local MOON_OK = GetModConfigData("moon_ok") --allow growing moon shrooms
-local MOON_SPORE = GetModConfigData("moon_spore") --allow catching and planting lunar spores
-local SPORE_HARVEST = GetModConfigData("spore_harvest") --wait until player harvests
-
-local fert_values =
+local cfg_name =
 {
-    livinglog = TUNING.MUSHROOMFARM_MAX_HARVESTS,
+    --"max_harvests", --0: default, -1: unlimited
+    "easy_fert", --allow regular fertilizers
+    "snow_grow", --grow instead of pausing in snow
+    "spore_harvest", --wait until player harvests to release
+    "moon_ok", --everyone can grow moon shrooms from cap
+    "moon_spore", --allow catching and planting lunar spores
 }
 
-if GetModConfigData("easy_fert") then
+local cfg = { MAX_HARVESTS = GetModConfigData("max_harvests") }
+for _,s in ipairs(cfg_name) do --these are boolean
+    cfg[string.upper(s)] = (GetModConfigData(s) == true)
+end
+
+cfg_name = nil --don't need table anymore
+
+if cfg.MAX_HARVESTS > 0 then
+    TUNING.MUSHROOMFARM_MAX_HARVESTS = cfg.MAX_HARVESTS
+end
+
+local fert_values = { livinglog = TUNING.MUSHROOMFARM_MAX_HARVESTS }
+if cfg.EASY_FERT then
     local fd = require("prefabs/fertilizer_nutrient_defs").FERTILIZER_DEFS
     for k, v in pairs(fd) do --fertilizers restore harvests by 1/8 of total nutrients
         local sum = v.nutrients[1] + v.nutrients[2] + v.nutrients[3]
@@ -49,38 +56,43 @@ end
 local levels
 local spore_to_cap
 local StartGrowing
+local old_onsnowcover
 
 local function find_mfarm_upvalues(inst)
-    if spore_to_cap then
+    if old_onsnowcover then
         return true --already succeeded
     end
 
+    modprint("Upvalue hacking (".._G.tostring(inst)..") for required values.")
     if not inst.components.trader.onaccept then
-        modprint("inst.components.trader.onaccept not defined for (".._G.tostring(inst)..")!")
+        modprint("inst.components.trader.onaccept not defined!")
         return false
     end
 
-    StartGrowing = UpvalueHacker.GetUpvalue(inst.components.trader.onaccept, "StartGrowing")
-
+    local err_msg
+    StartGrowing, err_msg = HackUtil.GetUpvalue(inst.components.trader.onaccept, "StartGrowing")
     if not StartGrowing then
-        modprint("StartGrowing not found in old \"inst.components.trader.onaccept\"!")
+        modprint("inst.components.trader.onaccept"..err_msg)
         return false
     end
 
-    if not levels then --not found during SimPostInit
-        levels = UpvalueHacker.GetUpvalue(StartGrowing, "levels")
-    end
-
+    levels, err_msg = HackUtil.GetUpvalue(StartGrowing, "levels")
     if not levels then
-        modprint("\"levels\" not found in StartGrowing!")
+        modprint("inst.components.trader.onaccept -> StartGrowing"..err_msg)
         return false
     end
 
-    spore_to_cap = UpvalueHacker.GetUpvalue(StartGrowing, "spore_to_cap")
+    spore_to_cap, err_msg = HackUtil.GetUpvalue(StartGrowing, "spore_to_cap")
     if spore_to_cap then
         spore_to_cap.spore_moon = "moon_cap" --allow lunar spores to be planted
     else
-        modprint("\"spore_to_cap\" not found in StartGrowing!")
+        modprint("inst.components.trader.onaccept -> StartGrowing"..err_msg)
+        return false
+    end
+
+    old_onsnowcover, err_msg = HackUtil.GetUpvalue(_G.Prefabs.mushroom_farm.fn, "onsnowcoveredchagned")
+    if not old_onsnowcover then
+        modprint("Prefabs.mushroom_farm.fn"..err_msg)
         return false
     end
 
@@ -110,7 +122,7 @@ local function my_setlevel(inst, level, dotransition) --accept items when snowy 
         inst.components.trader:Enable()
         inst.components.harvestable:SetGrowTime(nil)
         inst.components.workable:SetWorkLeft(1)
-    elseif not SNOW_GROW and _G.TheWorld.state.issnowcovered then
+    elseif not cfg.SNOW_GROW and _G.TheWorld.state.issnowcovered then
         inst.components.trader:Disable()
     elseif inst.components.harvestable:CanBeHarvested() then
         inst.components.trader:Disable()
@@ -136,7 +148,7 @@ local function my_updatelevel(inst, dotransition) --keep growing when snowy if S
 
     local h = inst.components.harvestable
     if h:CanBeHarvested() then
-        if not SNOW_GROW and _G.TheWorld.state.issnowcovered then
+        if not cfg.SNOW_GROW and _G.TheWorld.state.issnowcovered then
             if h.growtime then
                 h:SetGrowTime(nil)
                 h:PauseGrowing() --put it on hold instead of rotting
@@ -160,11 +172,11 @@ end
 local function my_onharvest(inst, picker, produce) --support unlimited harvests
     if inst:HasTag("burnt") then
         return
-    elseif MAX_HARVESTS >= 0 then
+    elseif cfg.MAX_HARVESTS >= 0 then
         inst.remainingharvests = inst.remainingharvests - 1
     end
 
-    if SPORE_HARVEST and produce == levels[1].amount then --do spore release here
+    if cfg.SPORE_HARVEST and produce == levels[1].amount then --do spore release here
         if math.random() <= TUNING.MUSHROOMFARM_SPAWN_SPORE_CHANCE then
             for k, v in pairs(spore_to_cap) do
                 if v == inst.components.harvestable.product then
@@ -188,7 +200,7 @@ local function my_accepttest(inst, item, giver) --accept items in fert_values, a
     elseif not (item:HasTag("mushroom") or item:HasTag("spore")) then --only mushrooms and spores past this point
         return false, "MUSHROOMFARM_NEEDSSHROOM"
     elseif item:HasTag("moonmushroom") then --check if we grow moon shrooms
-        if MOON_OK then
+        if cfg.MOON_OK then
             return true
         end
 
@@ -236,55 +248,48 @@ local function my_ongrow(inst, produce) --don't release spores
     my_updatelevel(inst, true)
 end
 
-local function my_onsnowcoveredchanged(inst, covered)
-    if inst.components.harvestable then
-        my_updatelevel(inst)
-    end
-end
-
-local function replace_snow_watcher(inst)
-    local watch = inst.worldstatewatching and inst.worldstatewatching.issnowcovered
-    for _, v in ipairs(watch or {}) do
-        local found = UpvalueHacker.GetUpvalue(v, "updatelevel")
-
-        if found then
-            inst:StopWatchingWorldState("issnowcovered", v)
-            inst:WatchWorldState("issnowcovered", my_onsnowcoveredchanged)
-            return
-        end
-    end
-
-    modprint("No \"issnowcovered\" watcher found!")
+local function my_onsnowcover(inst, covered) --don't rot
+    my_updatelevel(inst)
 end
 
 AddPrefabPostInit("mushroom_farm", function(inst)
-    if find_mfarm_upvalues(inst) then
-        if SPORE_HARVEST then
-            inst.components.harvestable:SetOnGrowFn(my_ongrow)
-        else
-            UpvalueHacker.SetUpvalue(inst.components.harvestable.ongrowfn, my_updatelevel, "updatelevel")
-        end
-
-        if inst.components.burnable.onignite then --someone might remove onignite to protect mushrooms
-            UpvalueHacker.SetUpvalue(inst.components.burnable.onignite, my_updatelevel, "updatelevel")
-        end
-
-        if inst.components.burnable.onextinguish then
-            UpvalueHacker.SetUpvalue(inst.components.burnable.onextinguish, my_updatelevel, "updatelevel")
-        end
-
-        UpvalueHacker.SetUpvalue(inst.OnLoad, my_updatelevel, "updatelevel")
-
-        inst.components.harvestable:SetOnHarvestFn(my_onharvest)
-
-        inst.components.trader.deleteitemonaccept = false --handled in my_onacceptitem
-        inst.components.trader:SetAbleToAcceptTest(my_accepttest)
-        inst.components.trader.onaccept = my_onacceptitem
-
-        replace_snow_watcher(inst)
-    else
-        _G.TheNet:SystemMessage("[Improved Mushroom Planters] Failed to modify Mushroom Planter!")
+    if not find_mfarm_upvalues(inst) then
+        return
     end
+
+    local t = inst.components.harvestable
+    if cfg.SPORE_HARVEST then --spores released on harvest instead
+        t:SetOnGrowFn(my_ongrow)
+    elseif not HackUtil.SetUpvalue(t.ongrowfn, my_updatelevel, "updatelevel") then
+        modprint("inst.components.harvestable.ongrowfn -> updatelevel not found!")
+    end
+
+    local b = inst.components.burnable
+    if b and b.onignite then --someone might remove onignite to protect mushrooms
+        if not HackUtil.SetUpvalue(b.onignite, my_updatelevel, "updatelevel") then
+            modprint("inst.components.burnable.onignite -> updatelevel not found!")
+        end
+    end
+
+    if b and b.onextinguish then
+        if not HackUtil.SetUpvalue(b.onextinguish, my_updatelevel, "updatelevel") then
+            modprint("inst.components.burnable.onextinguish -> updatelevel not found!")
+        end
+    end
+
+    if not HackUtil.SetUpvalue(inst.OnLoad, my_updatelevel, "updatelevel") then
+        modprint("inst.OnLoad -> updatelevel not found!")
+    end
+
+    t:SetOnHarvestFn(my_onharvest) --support unlimited harvests, spore release
+
+    t = inst.components.trader
+    t.deleteitemonaccept = false --handled in my_onacceptitem
+    t:SetAbleToAcceptTest(my_accepttest)
+    t.onaccept = my_onacceptitem
+
+    inst:StopWatchingWorldState("issnowcovered", old_onsnowcover)
+    inst:WatchWorldState("issnowcovered", my_onsnowcover)
 end)
 
 -------------------------------------------
@@ -300,27 +305,28 @@ local function find_spore_upvalues(inst)
         return true --already succeeded
     end
 
-    checkforcrowding = UpvalueHacker.GetUpvalue(_G.Prefabs.spore_moon.fn, "checkforcrowding")
+    modprint("Upvalue hacking (".._G.tostring(inst)..") for required values.")
+    if not inst.OnEntityWake then
+        modprint("inst.OnEntityWake not defined!")
+        return false
+    end
 
+    local err_msg
+    checkforcrowding, err_msg = HackUtil.GetUpvalue(_G.Prefabs.spore_moon.fn, "checkforcrowding")
     if not checkforcrowding then
-        modprint("\"checkforcrowding\" not found in spore_moon prefab fn!")
-        return false
-    elseif not inst.OnEntityWake then
-        modprint("inst.OnEntityWake not defined for (".._G.tostring(inst)..")!")
+        modprint("Prefabs.spore_moon.fn"..err_msg)
         return false
     end
 
-    schedule_testing = UpvalueHacker.GetUpvalue(inst.OnEntityWake, "schedule_testing")
-
+    schedule_testing, err_msg = HackUtil.GetUpvalue(inst.OnEntityWake, "schedule_testing")
     if not schedule_testing then
-        modprint("\"schedule_testing\" not found in \"spore_entity_wake\"!")
+        modprint("inst.OnEntityWake"..err_msg)
         return false
     end
 
-    stop_testing = UpvalueHacker.GetUpvalue(schedule_testing, "stop_testing")
-
+    stop_testing, err_msg = HackUtil.GetUpvalue(schedule_testing, "stop_testing")
     if not stop_testing then
-        modprint("\"stop_testing\" not found in \"schedule_testing\"!")
+        modprint("inst.OnEntityWake -> schedule_testing"..err_msg)
         return false
     end
 
@@ -403,36 +409,36 @@ local function ondropped(inst) --same as regular spores, but we need to resume t
         depleted(inst) --explode immediately
         return
     elseif not inst.crowdingtask then
-        inst.crowdingtask = inst:DoTaskInTime(TUNING.MUSHSPORE_DENSITY_CHECK_TIME + math.random()*TUNING.MUSHSPORE_DENSITY_CHECK_VAR, checkforcrowding)
+        inst.crowdingtask = inst:DoTaskInTime(TUNING.MUSHSPORE_DENSITY_CHECK_TIME +
+            math.random()*TUNING.MUSHSPORE_DENSITY_CHECK_VAR, checkforcrowding)
     end
     inst.sg:GoToState("takeoff") --give player time to get away
     schedule_testing(inst) --start looking for targets
 end
 
 AddPrefabPostInit("spore_moon", function(inst)
-    --support existing inventory spores even if MOON_SPORE is false
-    if find_spore_upvalues(inst) then
-        inst:AddTag("show_spoilage")
-        inst:AddComponent("tradable")
-        inst:AddComponent("inventoryitem")
-        inst.components.inventoryitem.atlasname = "images/inventoryimages/spore_moon.xml"
-        inst.components.inventoryitem.canbepickedup = false
-
-        if MOON_SPORE then
-            inst.components.workable:SetOnFinishCallback(onworked) --collect instead of explode
-        end
-
-        inst.components.perishable:SetOnPerishFn(depleted) --drop from inventory and explode
-
-        inst:ListenForEvent("onputininventory", onpickup) --stop proximity testing
-        inst:ListenForEvent("ondropped", ondropped) --spread out stack and resume testing
-
-        inst:DoTaskInTime(1, function(inst)
-            if inst:IsInLimbo() then
-                stop_testing(inst) --undo original prefab's testing if loaded in inventory
-            end
-        end)
-    else
-        _G.TheNet:SystemMessage("[Improved Mushroom Planters] Failed to modify Lunar Spore!")
+    if not find_spore_upvalues(inst) then
+        return
     end
+    --we need to support existing inventory spores even if MOON_SPORE is false
+    inst:AddTag("show_spoilage")
+    inst:AddComponent("tradable")
+    inst:AddComponent("inventoryitem")
+    inst.components.inventoryitem.atlasname = "images/inventoryimages/spore_moon.xml"
+    inst.components.inventoryitem.canbepickedup = false
+
+    if cfg.MOON_SPORE then
+        inst.components.workable:SetOnFinishCallback(onworked) --collect instead of explode
+    end
+
+    inst.components.perishable:SetOnPerishFn(depleted) --drop from inventory and explode
+
+    inst:ListenForEvent("onputininventory", onpickup) --stop proximity testing
+    inst:ListenForEvent("ondropped", ondropped) --spread out stack and resume testing
+
+    inst:DoTaskInTime(1, function(inst)
+        if inst:IsInLimbo() then
+            stop_testing(inst) --undo original prefab's testing if loaded in inventory
+        end
+    end)
 end)

@@ -2,7 +2,7 @@
 name = "Improved Mushroom Planters"
 description = "Planted mushrooms don't turn into rot in winter, plus configurable options for fertilizers and moon shrooms."
 author = "Bumber"
-version = "1.7"
+version = "1.8"
 forumthread = ""
 
 icon_atlas = "modicon.xml"
@@ -33,7 +33,7 @@ configuration_options =
     {
         name = "easy_fert",
         label = "Allow Fertilizers",
-        hover = "If fertilizers can be used in place of living logs",
+        hover = "Can fertilizers can be used in place of living logs?",
         options =
         {
             {description = "No", data = false, hover = "Living logs only"},
@@ -44,7 +44,7 @@ configuration_options =
     {
         name = "snow_grow",
         label = "Grow When Snow-covered",
-        hover = "Whether to continue growing in winter or pause growth until snow melts",
+        hover = "Whether to continue growing in winter or pause growth until snow melts.",
         options =
         {
             {description = "No", data = false, hover = "Pause growth"},
@@ -55,7 +55,7 @@ configuration_options =
     {
         name = "spore_harvest",
         label = "Release Spores on Harvest",
-        hover = "Option to release spores on player harvest instead of when finished growing\n(when grown from spores)",
+        hover = "Option to release spores on player harvest instead of\nwhen finished growing (when grown from spores).",
         options =
         {
             {description = "Default", data = false, hover = "Release ASAP on max size"},

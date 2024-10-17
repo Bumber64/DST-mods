@@ -63,7 +63,7 @@ function HackUtil.SetUpvalue(scope_fn, new_fn, fn_name)
         i = i + 1
         cur_name = debug.getupvalue(scope_fn, i)
         if not cur_name then --not found
-            return false --DEBUG
+            return false
         end
     until (cur_name == fn_name)
 

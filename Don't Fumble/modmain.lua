@@ -5,10 +5,13 @@ if not _G.TheNet:GetIsServer() then
 end
 
 local TheSim = _G.TheSim
-local FRAMES = _G.FRAMES
-local EQUIPSLOTS = _G.EQUIPSLOTS
 local ACTIONS = _G.ACTIONS
+local EQUIPSLOTS = _G.EQUIPSLOTS
+local FOODTYPE = _G.FOODTYPE
+local FRAMES = _G.FRAMES
 local BufferedAction = _G.BufferedAction
+local FindEntity = _G.FindEntity
+local Prefabs = _G.Prefabs
 local ts = _G.tostring
 
 local function modprint(s)
@@ -31,7 +34,7 @@ local HackUtil = require("tools/hackutil")
 local cfg_name =
 {
     "all_nofumble", --0:Default, 1:stronggrip
-    "wet_nofumble", --0:Default, 1:Tools, 2:Drown
+    "wet_nofumble", --0:Default, 1:Wet, 2:Drown
     "cutless_nosteal", --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
     "cutless_player", --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
 
@@ -41,9 +44,25 @@ local cfg_name =
     "bearger_nosmash", --0:Default, 1:Containers, 2:Trampling, 3:Beehives
     "bearger_nosteal", --0:Default, 1:Containers, 2:Structures, 3:Pickables
 
+    "gdw_nocreature", --0:Default, 1:NoCreature, 2:NoSmall
+    "gdw_noitem", --0:Default, 1:NoMisc, 2:NoEdible
+    "gdw_noplayer", --0:Default, 1:NoPlayer, 2:NoOther
+    "gdw_nosmash", --0:Default, 1:NoSmash
+
+    "icker_nofumble", --0:Default, 1:NoFumble
+    "icker_nosteal", --0:Default, 1:Backpack, 2:Armor
+
     "frog_nosteal", --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
 
-    "pmonkey_nosmash", --0:Default, 1:Mast, 2:NoEmptyChest, 3:NoTinker
+    "krampus_nochest", --0:Default, 1:NoSmash, 2:Ignore
+    "krampus_noexit", --0:Default, 1:NoExit
+    "krampus_nosteal", --0:Default, 1:FoodOnly, 2:Ignore
+
+    "marotter_nochest", --0:Default, 1:MeatOnly, 2:Containers
+    "marotter_noharvest", --0:Default, 1:NoFish, 2:NoKelp
+    "marotter_nosteal", --0:Default, 1:NoPlayer, 2:MeatOnly, 3:JustEat
+
+    "pmonkey_nosmash", --0:Default, 1:Mast, 2:NoEmptyChest, 3:Ignore
     "pmonkey_nosteal", --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
     "pmonkey_nosteal_ground", --0:Default, 1:NoWearHat, 2:Misc, 3:Bananas
 
@@ -70,9 +89,9 @@ cfg_name = nil --don't need table anymore
 --[[
 Fixing misaligned brains:
 1. Uncomment variables "_G.brain_exam" and "_G.surgery_table" to enable those functions in console.
-2. Run "brain_exam(c_select(), {"getactionfn"})" on desired creature. Brain takes time to start, so don't use "brain_exam(c_spawn("bearger"))".
+2. Run "brain_exam(c_select(), {"fn","getactionfn"})" on desired creature. Brain takes time to start, so don't use "brain_exam(c_spawn("bearger"))".
 
-3. Compare result with the commented "surgery_table" commands located before each surgery table (e.g., "bearger_surgery",) looking for any numbered paths that are wrong.
+3. Compare result with the commented "surgery_table" commands located before each surgery table (e.g., "bearger_surgery"), looking for any numbered paths that are wrong.
    Refer to Klei's brain script for the creature (e.g., "/scripts/brains/beargerbrain.lua") for the actual getactionfn names rather than memory addresses.
 
 4. Fix up the numbered paths on the commented commands and run those to generate an updated table.
@@ -87,8 +106,9 @@ Fixing misaligned brains:
 -------------------------------------------
 
 if cfg.ALL_NOFUMBLE > 0 then
-    cfg.BEARGER_NOFUMBLE = 0
+    cfg.BEARGER_NOFUMBLE = 0 --skip hacking
     cfg.MOOSE_NOFUMBLE = 0
+    cfg.ICKER_NOFUMBLE = 0
 
     AddPlayerPostInit(function(inst)
         inst:AddTag("stronggrip")
@@ -97,7 +117,7 @@ end
 
 if cfg.WET_NOFUMBLE > 0 then
     local function hack_DropWetTool(inst) --remove DropWetTool (prefabs/player_common.lua)
-        modprint("Upvalue hacking ("..ts(inst)..") for DropWetTool")
+        modprint("Upvalue hacking ("..ts(inst)..") for \"DropWetTool\".")
         local t = inst.event_listening.onattackother
         t = t and t[inst] or nil --all listeners where player is listening to themself attack others
 
@@ -106,7 +126,7 @@ if cfg.WET_NOFUMBLE > 0 then
             return
         end
 
-        local DWT_INDEX = 1 --DropWetTool should be at this index in OnAttackOther, don't search entire functions
+        local DWT_INDEX = 1 --DropWetTool should be at this index in OnAttackOther, don't search entire fns
         for _,fn in ipairs(t) do
             local name, val = _G.debug.getupvalue(fn, DWT_INDEX)
             if name and name == "DropWetTool" then
@@ -118,7 +138,7 @@ if cfg.WET_NOFUMBLE > 0 then
         modprint("Couldn't find DropWetTool in player's \"onattackother\" listeners!")
     end
 
-    local function OnFallInOcean(self, shore_x, shore_y, shore_z) --don't drop hand equipment or active item
+    local function my_OnFallInOcean(self, shore_x, shore_y, shore_z) --don't drop hand equipment or active item
         self.src_x, self.src_y, self.src_z = self.inst.Transform:GetWorldPosition()
 
         if shore_x == nil then
@@ -137,16 +157,16 @@ if cfg.WET_NOFUMBLE > 0 then
             hack_DropWetTool(inst)
         end
 
-        if cfg.WET_NOFUMBLE > 1 and inst.components.drownable then
-            local d = inst.components.drownable
+        local d = inst.components.drownable
+        if d and cfg.WET_NOFUMBLE > 1 then --need to protect active cursor item regardless of stronggrip
             d.shoulddropitemsfn = empty_fn --don't drop half of items
-            d.OnFallInOcean = OnFallInOcean --don't drop hand equipment or active item
+            d.OnFallInOcean = my_OnFallInOcean --don't drop hand equipment or active item
         end
     end)
 end
 
 if cfg.CUTLESS_NOSTEAL > 0 or cfg.CUTLESS_PLAYER > 0 then --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
-    local function OnAttack(oldfn, inst, attacker, target)
+    local function my_OnAttack(oldfn, inst, attacker, target)
         local nosteal_level = attacker:HasTag("player") and cfg.CUTLESS_PLAYER or cfg.CUTLESS_NOSTEAL
 
         if not (nosteal_level > 2 or
@@ -161,7 +181,7 @@ if cfg.CUTLESS_NOSTEAL > 0 or cfg.CUTLESS_PLAYER > 0 then --0:Default, 1:Protect
         local oldattackfn = inst.components.weapon.onattack
         if oldattackfn then
             inst.components.weapon.onattack = function(inst, attacker, target)
-                OnAttack(oldattackfn, inst, attacker, target)
+                my_OnAttack(oldattackfn, inst, attacker, target)
             end
         end
     end)
@@ -192,10 +212,13 @@ end
 -------------------------------------------
 
 if cfg.BEARGER_NOFUMBLE > 0 or cfg.BEARGER_NOSMASH > 1 then
-    local my_OnDestroyOther
+    local OnHitOther
+    local OnDestroyOther
+    local hack_success --complete success, don't try again
 
+    --square of the speed used by SGbearger when aggroed, subtract a little to make it less finicky
     local ANGRYWALK_SQ = TUNING.BEARGER_ANGRY_WALK_SPEED * TUNING.BEARGER_ANGRY_WALK_SPEED - 0.01
-    local function OnCollide(inst, other) --don't trample stuff except trees and boulders while not angry
+    local function my_OnCollide(inst, other) --don't trample stuff except trees and boulders while not angry
         if other and other:IsValid() and
             other.components.workable and
             other.components.workable:CanBeWorked() and
@@ -205,49 +228,61 @@ if cfg.BEARGER_NOFUMBLE > 0 or cfg.BEARGER_NOSMASH > 1 then
             if speed_sq >= 1 and (speed_sq >= ANGRYWALK_SQ or other:HasTag("tree") or other:HasTag("boulder")) and
                 not inst.recentlycharged[other] then
 
-                inst:DoTaskInTime(2*FRAMES, my_OnDestroyOther, other)
+                inst:DoTaskInTime(2*FRAMES, OnDestroyOther, other)
             end
         end
     end
 
-    AddPrefabPostInit("bearger", function(inst)
-        local my_commonfn, err_msg = HackUtil.GetUpvalue(_G.Prefabs.bearger.fn, "commonfn")
-
-        if my_commonfn then
-            if cfg.BEARGER_NOFUMBLE > 0 then --prevent fumbling from swipe attack
-                local OnHitOther, err_msg = HackUtil.GetUpvalue(my_commonfn, "OnHitOther")
-
-                if OnHitOther then
-                    inst:RemoveEventCallback("onhitother", OnHitOther)
-                else
-                    modprint("Prefabs.bearger.fn -> commonfn"..err_msg)
-                end
-            end
-
-            if cfg.BEARGER_NOSMASH > 1 then --Trampling
-                if my_OnDestroyOther == nil then
-                    my_OnDestroyOther, err_msg = HackUtil.GetUpvalue(my_commonfn, "OnCollide", "OnDestroyOther")
-
-                    if not my_OnDestroyOther then
-                        modprint("Prefabs.bearger.fn -> commonfn"..err_msg)
-                        my_OnDestroyOther = false --skip future hacking
-                    end
-                end
-
-                if my_OnDestroyOther then
-                    inst.Physics:SetCollisionCallback(OnCollide)
-                else
-                    modprint("Bearger's OnDestroyOther not found. Don't change collision callback.")
-                end
-            end
-        else
-            modprint("Prefabs.bearger.fn"..err_msg)
+    local function find_bearger_upvalues(inst) --lunar uses same bearger fns
+        if hack_success then
+            return true --already succeeded
         end
-    end)
+
+        modprint("Upvalue hacking ("..ts(inst)..") for required values.")
+        local commonfn, err_msg = HackUtil.GetUpvalue(Prefabs.bearger.fn, "commonfn")
+        if not commonfn then
+            modprint("Prefabs.bearger.fn"..err_msg)
+            return false
+        end
+
+        hack_success = nil --clear any previous false
+        if cfg.BEARGER_NOFUMBLE > 0 then
+            OnHitOther, err_msg = HackUtil.GetUpvalue(my_commonfn, "OnHitOther")
+            if not OnHitOther then
+                modprint("Prefabs.bearger.fn -> commonfn"..err_msg)
+                hack_success = false
+            end
+        end
+
+        if cfg.BEARGER_NOSMASH > 1 then --Trampling
+            OnDestroyOther, err_msg = HackUtil.GetUpvalue(my_commonfn, "OnCollide", "OnDestroyOther")
+            if not OnDestroyOther then
+                modprint("Prefabs.bearger.fn -> commonfn"..err_msg)
+                hack_success = false
+            end
+        end
+
+        hack_success = hack_success ~= false --didn't fail required
+        return hack_success
+    end
+
+    for _,v in pairs({"bearger", "mutatedbearger"}) do
+        AddPrefabPostInit(v, function(inst)
+            find_bearger_upvalues(inst) --we'll accept partial success
+
+            if OnHitOther then --prevent fumbling from swipe attack
+                inst:RemoveEventCallback("onhitother", OnHitOther)
+            end
+
+            if OnDestroyOther then --prevent trampling
+                inst.Physics:SetCollisionCallback(my_OnCollide)
+            end
+        end)
+    end
 end
 
 if cfg.BEARGER_NOSTEAL > 0 or cfg.BEARGER_NOSMASH > 0 then
-    local chest_action
+    local chest_action --correct action for config
     if cfg.BEARGER_NOSMASH == 0 then
         chest_action = ACTIONS.HAMMER
     else
@@ -267,7 +302,7 @@ if cfg.BEARGER_NOSTEAL > 0 or cfg.BEARGER_NOSMASH > 0 then
     local NO_TAGS = {"FX", "NOCLICK", "DECOR", "INLIMBO", "burnt", "outofreach" }
     local PICKABLE_FOODS = {berries = true, cave_banana = true, carrot = true, red_cap = true, blue_cap = true, green_cap = true}
 
-    local function StealFoodAction(inst) --limit actions based on config, allow stealing from chests instead of hammering
+    local function my_StealFoodAction(inst) --limit actions based on config, allow stealing from chests instead of hammering
         if inst.sg:HasStateTag("busy") or inst.components.inventory == nil or inst.components.inventory:IsFull()then
             return
         end
@@ -363,17 +398,17 @@ if cfg.BEARGER_NOSTEAL > 0 or cfg.BEARGER_NOSMASH > 0 then
         end
     end
 
-    --surgery_table(c_select(), {{1,2,4,2,2,"getactionfn = StealFoodAction"}, {1,2,6,"getactionfn = StealFoodAction"}, {1,2,7,"getactionfn = empty_fn, cond = function() return cfg.BEARGER_NOSMASH > 2 end"}})
+    --surgery_table(c_select(), {{1,2,4,2,2,"getactionfn = my_StealFoodAction"}, {1,2,6,"getactionfn = my_StealFoodAction"}, {1,2,7,"getactionfn = empty_fn, cond = function() return cfg.BEARGER_NOSMASH > 2 end"}})
     local bearger_surgery =
     {name = "Priority", child =
         {num = 1, name = "Parallel", child =
             {num = 2, name = "Priority", children =
                 {{num = 4, name = "Parallel", child =
                     {num = 2, name = "Priority", child =
-                        {num = 2, name = "DoAction", getactionfn = StealFoodAction}
+                        {num = 2, name = "DoAction", getactionfn = my_StealFoodAction}
                     }
                 },
-                {num = 6, name = "DoAction", getactionfn = StealFoodAction},
+                {num = 6, name = "DoAction", getactionfn = my_StealFoodAction},
                 {num = 7, name = "AttackHive", getactionfn = empty_fn, cond = function() return cfg.BEARGER_NOSMASH > 2 end}}
             }
         }
@@ -388,11 +423,221 @@ if cfg.BEARGER_NOSTEAL > 0 or cfg.BEARGER_NOSMASH > 0 then
 end
 
 -------------------------------------------
+------------ Great Depths Worm ------------
+-------------------------------------------
+
+if cfg.GDW_NOSMASH > 0 then
+    AddPrefabPostInit("worm_boss_dirt", function(inst)
+        if inst.components.groundpounder then
+            inst.components.groundpounder.destroyer = false
+        end
+    end)
+end
+
+if cfg.GDW_NOCREATURE > 0 or cfg.GDW_NOPLAYER > 0 or cfg.GDW_NOITEM > 0 then
+    local WORMBOSS_UTILS = require("prefabs/worm_boss_util")
+    local SpDamageUtil = require("components/spdamageutil")
+
+    local OnThingExitDevouredState
+    local TransferCreatureInventory
+
+    local function combine_hits(attacker, target) --instant 40 hits of damage
+        local dmg, spdmg = attacker.components.combat:CalcDamage(target)
+        if spdmg then --in case of planar damage
+            spdmg = SpDamageUtil.ApplyMult(spdmg, 40)
+        end
+        target.components.combat:GetAttacked(attacker, dmg*40, nil, nil, spdmg)
+    end
+
+    local function undo_nonlethal(inst) --allow target to be killed
+        if inst and inst.components.health then
+            inst.components.health:SetMinHealth(0)
+        end
+    end
+
+    --defaults from worm_boss_util.lua
+    local FOOD_CANT_TAGS = { "INLIMBO", "NOCLICK", "FX", "DECOR", "largecreature", "worm_boss_piece", "noattack", "notarget", "playerghost" }
+    local FOOD_ONEOF_TAGS = { "_inventoryitem", "character", "smallcreature"}
+
+    local function my_CollectThingsToEat(inst, source) --limit targets by cfg, fix item stack bug
+        local pt = source:GetPosition()
+        local ents = TheSim:FindEntities(pt.x, 0, pt.z, TUNING.WORM_BOSS_EAT_RANGE, nil, FOOD_CANT_TAGS, FOOD_ONEOF_TAGS)
+
+        if _G.next(ents) == nil then
+            return false --empty
+        end
+
+        local ate = false
+        local calories = 0
+        for _,ent in ipairs(ents) do
+            local health = ent.components.health
+            if not health or not health:IsDead() then --not dead
+                if inst.components.combat.target == ent then
+                    inst.components.combat:DropTarget()
+                end
+
+                if ent.components.inventoryitem and not (health and cfg.GDW_NOCREATURE > 1) then --0:Default, 1:NoCreature, 2:NoSmall; "smallcreature" as item
+                    if (cfg.GDW_NOITEM == 0 or (cfg.GDW_NOITEM == 1 and ent.components.edible) or --0:Default, 1:NoMisc, 2:NoEdible; permitted item
+                        health or ent:HasTag("irreplaceable")) and --overrule cfg if indestructible or "smallcreature" item
+                        not inst.components.inventory:IsFull() then --can fit item
+
+                        if ent.components.edible then
+                            local stack = ent.components.stackable and ent.components.stackable.stacksize or 1
+                            calories = calories + ent.components.edible.hungervalue * stack --fix ignoring stacked calories
+                        end
+
+                        inst.components.inventory:GiveItem(ent)
+                        ate = true
+                    else --fling or ignore
+                        if inst.head then
+                            inst.head.components.lootdropper:FlingItem(ent)
+                        end
+                    end
+                else --creature (we've permitted "smallcreature")
+                    local was_devoured
+                    if ent.sg and not ent.sg:HasStateTag("knockback") and ent:IsValid() and --near enough and not in knockback
+                        ent:GetDistanceSqToPoint(pt) < TUNING.WORM_BOSS_EAT_CREATURE_RANGE * TUNING.WORM_BOSS_EAT_CREATURE_RANGE then
+
+                        if inst.devoured == nil then
+                            inst.devoured = {}
+                        end
+
+                        was_devoured = true --presume ent will be eaten at this point
+                        if ent:HasOneOfTags("player", "devourable") then --player, Hutch, etc.
+                            local minhealth = health and health.minhealth or nil
+                            if minhealth == 0 then
+                                health:SetMinHealth(1)
+                            end
+
+                            if cfg.GDW_NOPLAYER > 1 or (cfg.GDW_NOPLAYER > 0 and ent:HasTag("player")) then --0:Default, 1:NoPlayer, 2:NoOther
+                                --instant 40 hits of nonlethal damage and sanity
+                                combine_hits(inst, ent)
+
+                                if minhealth == 0 then --act like OnThingExitDevouredState
+                                    if ent.components.oldager then
+                                        ent.components.oldager:FastForwardDamageOverTime()
+                                    end
+                                    ent:DoTaskInTime(27*FRAMES, undo_nonlethal) --protect until knockback done
+                                end
+                                if ent.components.sanity then
+                                    ent.components.sanity:DoDelta(-TUNING.SANITY_SUPERTINY*40)
+                                end
+                                was_devoured = false --not eaten, no table insert, do knockback
+                            else --default devour behaviour
+                                ent.sg:HandleEvent("devoured", { attacker = inst, ignoresetcamdist = true })
+                                if minhealth == 0 then
+                                    ent:ListenForEvent("newstate", OnThingExitDevouredState)
+                                end
+                                table.insert(inst.devoured, ent)
+                            end
+                        elseif not ent:HasTag("irreplaceable") then --any killable creature without "devourable"
+                            if cfg.GDW_NOCREATURE == 0 then --0:Default, 1:NoCreature, 2:NoSmall
+                                TransferCreatureInventory(inst, ent)
+                                ent:Remove()
+                                table.insert(inst.devoured, { blankfiller = true })
+                            else --instant 40 hits of damage
+                                combine_hits(inst, ent)
+
+                                if health and health:IsDead() then --dead, act like eaten
+                                    if not ent.components.inventoryitem then --only large creatures count
+                                        table.insert(inst.devoured, { blankfiller = true })
+                                    end
+                                else --still alive, do knockback
+                                    was_devoured = false
+                                end
+                            end
+                        end --else irreplaceable creature
+
+                        ate = true
+                    end --end near enough and not in knockback
+
+                    if not was_devoured then
+                        WORMBOSS_UTILS.Knockback(source, ent)
+                    end
+                end --end item/creature
+            end --end not dead
+        end --end loop
+
+        if calories > 0 then
+            inst.chews = math.min(math.ceil(calories/20),4)
+        end
+        return ate
+    end
+
+    local function do_gdw_hack()
+        local old_fn, err_msg = HackUtil.GetUpvalue(WORMBOSS_UTILS.EmergeHead, "CollectThingsToEat")
+        if not old_fn then
+            modprint("WORMBOSS_UTILS.EmergeHead"..err_msg)
+            return
+        end
+
+        OnThingExitDevouredState, err_msg = HackUtil.GetUpvalue(old_fn, "OnThingExitDevouredState")
+        if not OnThingExitDevouredState then
+            modprint("WORMBOSS_UTILS.EmergeHead -> CollectThingsToEat"..err_msg)
+            return
+        end
+
+        TransferCreatureInventory, err_msg = HackUtil.GetUpvalue(old_fn, "TransferCreatureInventory")
+        if not TransferCreatureInventory then
+            modprint("WORMBOSS_UTILS.EmergeHead -> CollectThingsToEat"..err_msg)
+            return
+        end
+
+        if not HackUtil.SetUpvalue(WORMBOSS_UTILS.EmergeHead, my_CollectThingsToEat, "CollectThingsToEat") then
+            modprint("WORMBOSS_UTILS.EmergeHead -> CollectThingsToEat not found! (This shouldn't happen!)")
+        end
+
+        if not HackUtil.SetUpvalue(WORMBOSS_UTILS.MoveSegmentUnderGround, my_CollectThingsToEat, "CollectThingsToEat") then
+            modprint("WORMBOSS_UTILS.MoveSegmentUnderGround -> CollectThingsToEat not found!")
+        end
+    end
+
+    AddSimPostInit(do_gdw_hack) --modify worm_boss_util
+end
+
+-------------------------------------------
+------------------ Icker ------------------
+-------------------------------------------
+
+if cfg.ICKER_NOFUMBLE > 0 or cfg.ICKER_NOSTEAL > 0 then
+    local function my_CollectEquip(item, inst, ret) --protect items based on cfg
+        local e = item.components.equippable
+        if e.equipslot == EQUIPSLOTS.HANDS then --weapon/tool
+            if cfg.ICKER_NOFUMBLE > 0 or inst._suspendedplayer:HasTag("stronggrip") then
+                return --can't fumble
+            end
+        else --wearable; --0:Default, 1:Backpack, 2:Armor
+            if cfg.ICKER_NOSTEAL > 1 or (cfg.ICKER_NOSTEAL > 0 and item:HasTag("_container")) then
+                return --protected armor or backpack
+            end
+        end
+
+        if e:ShouldPreventUnequipping() or e:IsRestricted(inst) or item:HasTag("nosteal") then
+            return --special item
+        end
+
+        table.insert(ret, item)
+    end
+
+    AddPrefabPostInit("gelblob", function(inst)
+        local scope_fn, err_msg = HackUtil.GetUpvalue(Prefabs.gelblob.fn, "OnSuspendedPlayerDied", "StealSuspendedEquip")
+        if not scope_fn then
+            modprint("Prefabs.gelblob.fn"..err_msg)
+            return
+        end
+
+        if not HackUtil.SetUpvalue(scope_fn, my_CollectEquip, "CollectEquip") then
+            modprint("Prefabs.gelblob.fn -> OnSuspendedPlayerDied -> StealSuspendedEquip -> CollectEquip not found!")
+        end
+    end)
+end
+
+-------------------------------------------
 ------------------ Frogs ------------------
 -------------------------------------------
 
 if cfg.FROG_NOSTEAL > 0 then --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 3:ProtectAll
-    local function OnHitOther(oldfn, inst, other, ...)
+    local function my_OnHitOther(oldfn, inst, other, ...)
         if not (cfg.FROG_NOSTEAL > 2 or
             (cfg.FROG_NOSTEAL > 0 and other:HasTag("player")) or
             (cfg.FROG_NOSTEAL > 1 and is_player_follower(other))) then
@@ -411,7 +656,7 @@ if cfg.FROG_NOSTEAL > 0 then --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 
             local oldhitfn = inst.components.combat.onhitotherfn
             if oldhitfn then
                 inst.components.combat.onhitotherfn = function(inst, other, ...)
-                    OnHitOther(oldhitfn, inst, other, ...)
+                    my_OnHitOther(oldhitfn, inst, other, ...)
                 end
             end
         end)
@@ -419,17 +664,260 @@ if cfg.FROG_NOSTEAL > 0 then --0:Default, 1:ProtectPlayers, 2:ProtectFollowers, 
 end
 
 -------------------------------------------
+----------------- Krampus -----------------
+-------------------------------------------
+
+if cfg.KRAMPUS_NOCHEST > 0 or cfg.KRAMPUS_NOEXIT > 0 or cfg.KRAMPUS_NOSTEAL > 0 then
+    local chest_action --correct action for config
+    if cfg.KRAMPUS_NOCHEST == 1 then --NoSmash
+        chest_action = ACTIONS.EMPTY_CONTAINER
+        AddStategraphActionHandler("krampus", _G.ActionHandler(ACTIONS.EMPTY_CONTAINER, "hammer"))
+    else
+        chest_action = ACTIONS.HAMMER --won't be used if set to Ignore
+    end
+
+    local function allow_steal(item) --filter item by type
+        if cfg.KRAMPUS_NOSTEAL == 0 then
+            return true --anything goes
+        end
+
+        local e = item.components.edible --krampus prefab suggests he eats meat, we'll also steal candy
+        return e and (e.foodtype == FOODTYPE.MEAT or e.foodtype == FOODTYPE.GOODIES)
+    end
+
+    local SEE_DIST = 30 --defaults from krampusbrain.lua
+    local TOOCLOSE = 6
+
+    local function my_CanSteal(item) --limit targets based on cfg
+        return item.components.inventoryitem and
+            item.components.inventoryitem.canbepickedup and
+            allow_steal(item) and --apply restrictions
+            item:IsOnValidGround() and
+            not item:IsNearPlayer(TOOCLOSE)
+    end
+
+    local STEAL_MUST_TAGS = { "_inventoryitem" }
+    local STEAL_CANT_TAGS = { "INLIMBO", "catchable", "fire", "irreplaceable", "heavy", "prey", "bird", "outofreach", "_container" }
+
+    local function my_StealAction(inst) --limit targets based on cfg
+        if cfg.KRAMPUS_NOSTEAL > 1 or inst.components.inventory:IsFull() then
+            return nil --ignoring all items or inventory full
+        end
+
+        local target = FindEntity(inst, SEE_DIST, my_CanSteal, STEAL_MUST_TAGS, STEAL_CANT_TAGS)
+        return target and BufferedAction(inst, target, ACTIONS.PICKUP) or nil
+    end
+
+    local function CanHammer(item) --from krampusbrain.lua
+        return item.prefab == "treasurechest" and
+            item.components.container and
+            not item.components.container:IsEmpty() and
+            not item:IsNearPlayer(TOOCLOSE) and
+            item:IsOnValidGround()
+    end
+
+    local EMPTYCHEST_MUST_TAGS = { "structure", "_container", "HAMMER_workable" }
+    local function my_EmptyChest(inst) --ignore or don't hammer based on cfg
+        if cfg.KRAMPUS_NOCHEST > 1 and not inst.components.inventory:IsFull() then
+            return nil --ignoring chests or inventory full
+        end
+
+        local target = FindEntity(inst, SEE_DIST, CanHammer, EMPTYCHEST_MUST_TAGS)
+        return target and BufferedAction(inst, target, chest_action) or nil
+    end
+
+    --surgery_table(c_select(), {{3,1,"fn = empty_fn, cond = function() return cfg.KRAMPUS_NOEXIT > 0 end"}, {4,1,1,"getactionfn = my_StealAction"}, {4,1,2,"getactionfn = my_EmptyChest"}})
+    local krampus_surgery =
+    {name = "Priority", children =
+        {{num = 3, name = "Sequence", child =
+            {num = 1, name = "donestealing", fn = empty_fn, cond = function() return cfg.KRAMPUS_NOEXIT > 0 end}
+        },
+        {num = 4, name = "MinPeriod", child =
+            {num = 1, name = "Priority", children =
+                {{num = 1, name = "steal", getactionfn = my_StealAction},
+                {num = 2, name = "emptychest", getactionfn = my_EmptyChest}}
+            }
+        }}
+    }
+
+    AddBrainPostInit("krampusbrain", function(self)
+        local err_msg = HackUtil.perform_surgery(self.bt.root, krampus_surgery)
+        if err_msg then
+            modprint("Error ("..ts(self.inst).."): "..err_msg)
+        end
+    end)
+end
+
+-------------------------------------------
+---------------- Marotter -----------------
+-------------------------------------------
+
+if cfg.MAROTTER_NOCHEST > 0 or cfg.MAROTTER_NOHARVEST > 0 or cfg.MAROTTER_NOSTEAL > 0 then
+    local function GetHomeLocation(inst) --from otterbrain.lua
+        local home = (inst.components.homeseeker and inst.components.homeseeker:GetHome()) or nil
+        return (home and home:GetPosition()) or inst.components.knownlocations:GetLocation("home")
+    end
+
+    local INTERACT_COOLDOWN_NAME = "picked_something_up_recently" --defaults from otterbrain.lua
+    local FINDITEMS_CANT_TAGS = { "FX", "INLIMBO", "DECOR", "outofreach" }
+    local SEE_ITEM_DISTANCE = 20
+    local BOAT_SIZE_SQ = (TUNING.BOAT.GRASS_BOAT.RADIUS * TUNING.BOAT.GRASS_BOAT.RADIUS)
+
+    local function my_FindGroundItemAction(inst) --skip or meat only
+        if cfg.MAROTTER_NOSTEAL > 2 or --0:Default, 1:NoPlayer, 2:MeatOnly, 3:JustEat
+            inst.sg:HasStateTag("busy") or
+            inst.components.timer:TimerExists(INTERACT_COOLDOWN_NAME) then
+
+            return
+        end
+
+        local home_position = GetHomeLocation(inst)
+        local test_ground_item_for_food = function(item)
+            return item:GetTimeAlive() >= 1 and
+                item.prefab ~= "mandrake" and
+                item.components.edible and
+                (cfg.MAROTTER_NOSTEAL < 2 or item.components.edible.foodtype == FOODTYPE.MEAT) and
+                item.components.inventoryitem and
+                (not home_position or item:GetDistanceSqToPoint(home_position) > BOAT_SIZE_SQ)
+        end
+        local target = FindEntity(inst, SEE_ITEM_DISTANCE, test_ground_item_for_food, nil, FINDITEMS_CANT_TAGS)
+        if not target then return end
+
+        local buffered_action = BufferedAction(inst, target, ACTIONS.PICKUP)
+
+        inst._start_interact_cooldown_callback = inst._start_interact_cooldown_callback or function()
+            inst.components.timer:StartTimer(INTERACT_COOLDOWN_NAME, _G.GetRandomWithVariance(5, 2))
+        end
+        buffered_action:AddSuccessAction(inst._start_interact_cooldown_callback)
+        buffered_action.validfn = function()
+            return not (target.components.inventoryitem and target.components.inventoryitem:IsHeld())
+        end
+        return buffered_action
+    end
+
+    local CONTAINER_MUST_TAGS = {"_container"} --defaults from otterbrain.lua
+    local CONTAINER_CANT_TAGS = { "INLIMBO", "catchable", "fire", "irreplaceable", "heavy", "outofreach", "spider" }
+    local STEAL_COOLDOWN_NAME = "steallootcooldown"
+
+    local function my_LootContainerFood(inst) --skip or meat only
+        if cfg.MAROTTER_NOCHEST > 1 or --0:Default, 1:MeatOnly, 2:Containers
+            inst.sg:HasStateTag("busy") or
+            inst.components.timer:TimerExists(STEAL_COOLDOWN_NAME) then
+
+            return
+        end
+
+        local ix, iy, iz = inst.Transform:GetWorldPosition()
+        local containers = TheSim:FindEntities(
+            ix, iy, iz, SEE_ITEM_DISTANCE,
+            CONTAINER_MUST_TAGS, CONTAINER_CANT_TAGS)
+
+        local items = {}
+        local item_found_count = 0
+        for _,container in ipairs(containers) do
+            if container.components.container.canbeopened and
+                not container.components.container:IsOpen() then
+
+                for k = 1, container.components.container.numslots do
+                    local item = container.components.container.slots[k]
+                    if item and item.components.edible and
+                        item.components.edible.foodtype == FOODTYPE.MEAT and
+                        inst.components.eater:CanEat(item) then
+
+                        table.insert(items, item)
+                        item_found_count = item_found_count + 1
+                    end
+                end
+
+                if item_found_count > 20 then
+                    break
+                end
+            end
+        end
+
+        if #items == 0 then return end
+
+        local item = items[math.random(#items)]
+        local buffered_action = BufferedAction(inst, item, ACTIONS.STEAL)
+
+        buffered_action.validfn = function() --tidied this up a bit
+            local owner = item.components.inventoryitem and item.components.inventoryitem.owner or nil
+            local c = owner and owner.components.container or nil
+
+            return c and c.canbeopened and not c:IsOpen() and
+                not (owner.components.inventoryitem and owner.components.inventoryitem:IsHeld()) and
+                not (owner.components.burnable and owner.components.burnable:IsBurning())
+        end
+        inst._start_steal_cooldown_callback = inst._start_steal_cooldown_callback or function()
+            inst.components.timer:StartTimer(STEAL_COOLDOWN_NAME, _G.GetRandomWithVariance(5, 2))
+        end
+        buffered_action:AddSuccessAction(inst._start_steal_cooldown_callback)
+        return buffered_action
+    end
+
+    --[[ --won't fit in a single copy-paste, define these two strings first!
+    player_str = "getactionfn = empty_fn, cond = function() return cfg.MAROTTER_NOSTEAL > 0 end"
+    chest_str = "getactionfn = my_LootContainerFood, cond = function() return cfg.MAROTTER_NOCHEST > 0 end"
+
+    surgery_table(c_select(), {{4,2,3, chest_str}, {4,2,4, player_str}, {7,2,1,"getactionfn = my_FindGroundItemAction, cond = function() return cfg.MAROTTER_NOSTEAL > 1 end"},
+        {7,2,2, chest_str}, {7,2,3, player_str}, {7,2,4,1,"fn = empty_fn, cond = function() return cfg.MAROTTER_NOHARVEST > 0 end"},
+        {7,2,5,"fn = empty_fn, cond = function() return cfg.MAROTTER_NOHARVEST > 1 end"}})
+    --]]
+    local otter_surgery =
+    {name = "Priority", children =
+        {{num = 4, name = "Parallel", child =
+            {num = 2, name = "Priority", children =
+                {{num = 3, name = "Look For Container Food", getactionfn = my_LootContainerFood, cond = function() return cfg.MAROTTER_NOCHEST > 0 end},
+                {num = 4, name = "Look For Character Food", getactionfn = empty_fn, cond = function() return cfg.MAROTTER_NOSTEAL > 0 end}}
+            }
+        },
+        {num = 7, name = "Parallel", child =
+            {num = 2, name = "Priority", children =
+                {{num = 1, name = "Look For Ground Edibles", getactionfn = my_FindGroundItemAction, cond = function() return cfg.MAROTTER_NOSTEAL > 1 end},
+                {num = 2, name = "Look For Container Food", getactionfn = my_LootContainerFood, cond = function() return cfg.MAROTTER_NOCHEST > 0 end},
+                {num = 3, name = "Look For Character Food", getactionfn = empty_fn, cond = function() return cfg.MAROTTER_NOSTEAL > 0 end},
+                {num = 4, name = "Parallel", child =
+                    {num = 1, name = "Try Fishing", fn = empty_fn, cond = function() return cfg.MAROTTER_NOHARVEST > 0 end}
+                },
+                {num = 5, name = "Harvest Kelp", fn = empty_fn, cond = function() return cfg.MAROTTER_NOHARVEST > 1 end}}
+            }
+        }}
+    }
+
+    AddBrainPostInit("otterbrain", function(self)
+        local err_msg = HackUtil.perform_surgery(self.bt.root, otter_surgery)
+        if err_msg then
+            modprint("Error ("..ts(self.inst).."): "..err_msg)
+        end
+    end)
+end
+
+-------------------------------------------
 -------------- Powder Monkey --------------
 -------------------------------------------
 
 if cfg.PMONKEY_NOSTEAL_GROUND == 1 then --0:Default, 1:NoWearHat, 2:Misc, 3:Bananas
-    AddPrefabPostInit("powder_monkey", function(inst) --don't equip hats that we pick up
-        modprint("Upvalue hacking Prefabs.powder_monkey.fn -> OnPickup")
-        local OnPickup = HackUtil.GetUpvalue(_G.Prefabs.powder_monkey.fn, "OnPickup")
+    local OnPickup
+
+    local function find_pmonkey_upvalues(inst)
         if OnPickup then
-            inst:RemoveEventCallback("onpickupitem", OnPickup)
-        else
-            modprint("Prefabs.powder_monkey.fn -> OnPickup not found!")
+            return true --already succeeded
+        end
+
+        modprint("Upvalue hacking ("..ts(inst)..") for \"OnPickup\".")
+        local err_msg
+        OnPickup, err_msg = HackUtil.GetUpvalue(Prefabs.powder_monkey.fn, "OnPickup")
+        if not OnPickup then
+            modprint("Prefabs.powder_monkey.fn"..err_msg)
+            return false
+        end
+
+        return true
+    end
+
+    AddPrefabPostInit("powder_monkey", function(inst)
+        if find_pmonkey_upvalues(inst) then
+            inst:RemoveEventCallback("onpickupitem", OnPickup) --don't equip hats that we pick up
         end
     end)
 end
@@ -447,8 +935,8 @@ if cfg.PMONKEY_NOSMASH > 0 or cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GRO
     end
 
     local DOTINKER_MUST_HAVE = {"structure"}
-    local function DoTinker(inst) --limit targets based on config, streamline function
-        if cfg.PMONKEY_NOSMASH > 2 or --0:Default, 1:Mast, 2:NoEmptyChest, 3:NoTinker
+    local function my_DoTinker(inst) --limit targets based on config, streamline function
+        if cfg.PMONKEY_NOSMASH > 2 or --0:Default, 1:Mast, 2:NoEmptyChest, 3:Ignore
             inst.sg:HasStateTag("busy") or
             inst.components.timer and
             inst.components.timer:TimerExists("reactiondelay") then
@@ -517,7 +1005,7 @@ if cfg.PMONKEY_NOSMASH > 0 or cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GRO
     local CHEST_MUST_TAGS = { "chest", "_container" }
     local CHEST_CANT_TAGS = { "outofreach" }
 
-    local function ShouldSteal(inst) --limit targets based on config, streamline function
+    local function my_ShouldSteal(inst) --limit targets based on config, streamline function
         if inst.sg:HasStateTag("busy") or inst.components.timer:TimerExists("hit") then
             return
         end
@@ -562,7 +1050,7 @@ if cfg.PMONKEY_NOSMASH > 0 or cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GRO
             return BufferedAction(inst, inst.itemtosteal, ACTIONS.PICKUP)
         end
 
-        if bc and cfg.PMONKEY_NOSMASH < 2 then --0:Default, 1:Mast, 2:NoEmptyChest, 3:NoTinker
+        if bc and cfg.PMONKEY_NOSMASH < 2 then --0:Default, 1:Mast, 2:NoEmptyChest, 3:Ignore
             local chests = TheSim:FindEntities(x, y, z, 10, CHEST_MUST_TAGS, CHEST_CANT_TAGS)
             for _,chest in ipairs(chests) do
                 if chest.components.container and
@@ -584,8 +1072,8 @@ if cfg.PMONKEY_NOSMASH > 0 or cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GRO
             q = q and q:TimerExists("right_of_passage")
 
             if not q then
-                local target = _G.FindEntity(inst, 10,
-                    function(guy) return pmonkey_targetfn(inst, guy) end,
+                local target = FindEntity(inst, 10,
+                    function(guy) return pmonkey_targetfn(inst, guy) end, --moved target logic to separate fn
                     RETARGET_MUST_TAGS, RETARGET_CANT_TAGS, RETARGET_ONEOF_TAGS)
                 if target then
                     return BufferedAction(inst, target, ACTIONS.STEAL)
@@ -596,12 +1084,12 @@ if cfg.PMONKEY_NOSMASH > 0 or cfg.PMONKEY_NOSTEAL > 0 or cfg.PMONKEY_NOSTEAL_GRO
         inst.nothingtosteal = true
     end
 
-    --surgery_table(c_select(), {{11,"getactionfn = DoTinker"}, {14,1,"getactionfn = ShouldSteal"}})
+    --surgery_table(c_select(), {{11,"getactionfn = my_DoTinker"}, {14,1,"getactionfn = my_ShouldSteal"}})
     local powder_monkey_surgery =
     {name = "Priority", children =
-        {{num = 11, name = "tinker", getactionfn = DoTinker},
+        {{num = 11, name = "tinker", getactionfn = my_DoTinker},
         {num = 14, name = "ChattyNode", child =
-            {num = 1, name = "steal", getactionfn = ShouldSteal}
+            {num = 1, name = "steal", getactionfn = my_ShouldSteal}
         }}
     }
 
@@ -675,7 +1163,7 @@ if cfg.SLURTLE_NOSTEAL > 0 then
     local STEALFOOD_CANT_TAGS = {"playerghost", "fire", "burnt", "INLIMBO", "outofreach"}
     local STEALFOOD_ONEOF_TAGS = {"player"} --removed "_container" since we're always protecting chests
 
-    local function StealFoodAction(inst) --limit targets based on config
+    local function my_StealFoodAction(inst) --limit targets based on config
         if cfg.SLURTLE_NOSTEAL > 1 or inst.sg:HasStateTag("busy") then --0:Default, 1:Containers, 2:Players
             return
         end
@@ -720,10 +1208,10 @@ if cfg.SLURTLE_NOSTEAL > 0 then
         end
     end
 
-    --surgery_table(c_select(), {{5,"getactionfn = StealFoodAction"}})
+    --surgery_table(c_select(), {{5,"getactionfn = my_StealFoodAction"}})
     local slurtle_surgery =
     {name = "Priority", child =
-        {num = 5, name = "DoAction", getactionfn = StealFoodAction}
+        {num = 5, name = "DoAction", getactionfn = my_StealFoodAction}
     }
 
     AddBrainPostInit("slurtlebrain", function(self)
@@ -758,7 +1246,7 @@ if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_NOCHEST > 0 then
     --modified from monkeybrain.lua, efficient like beargerbrain.lua
     local ValidFoodsToPick = {berries = true, cave_banana = true, carrot = true, red_cap = true, blue_cap = true, green_cap = true}
 
-    local function EatFoodAction(inst) --limit targets based on config, streamline function
+    local function my_EatFoodAction(inst) --limit targets based on config, streamline function
         if inst.sg:HasStateTag("busy") or
             (inst.components.eater:TimeSinceLastEating() and inst.components.eater:TimeSinceLastEating() < TIME_BETWEEN_EATING) or
             (inst.components.inventory and inst.components.inventory:IsFull()) or
@@ -827,7 +1315,7 @@ if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_NOCHEST > 0 then
         inst.canlootchests = true
     end
 
-    local AnnoyLeader = empty_fn
+    local my_AnnoyLeader = empty_fn --default to empty, replace if below condition true
 
     if cfg.SPLUMONKEY_NOCHEST == 0 or cfg.SPLUMONKEY_NOSTEAL == 0 then --allow some stealing
 
@@ -835,7 +1323,7 @@ if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_NOCHEST > 0 then
         local ANNOY_ALT_MUST_TAG = { "_inventoryitem" }
         local CANT_PICKUP_TAGS = {"heavy", "irreplaceable", "outofreach"}
 
-        AnnoyLeader = function(inst) --limit targets based on config
+        my_AnnoyLeader = function(inst) --limit targets based on config
             if inst.sg:HasStateTag("busy") then
                 return
             end
@@ -925,14 +1413,14 @@ if cfg.SPLUMONKEY_NOSTEAL > 0 or cfg.SPLUMONKEY_NOCHEST > 0 then
         return node
     end
 
-    --surgery_table(c_select(), {{7,2,"getactionfn = EatFoodAction, cond = function() return cfg.SPLUMONKEY_NOSTEAL > 0 end"}, {10,2,"getactionfn = AnnoyLeader"}})
+    --surgery_table(c_select(), {{7,2,"getactionfn = my_EatFoodAction, cond = function() return cfg.SPLUMONKEY_NOSTEAL > 0 end"}, {10,2,"getactionfn = my_AnnoyLeader"}})
     local monkey_surgery =
     {name = "Priority", children =
         {{num = 7, name = "Parallel", child =
-            {num = 2, name = "DoAction", getactionfn = EatFoodAction, cond = function() return cfg.SPLUMONKEY_NOSTEAL > 0 end}
+            {num = 2, name = "DoAction", getactionfn = my_EatFoodAction, cond = function() return cfg.SPLUMONKEY_NOSTEAL > 0 end}
         },
         {num = 10, name = "Parallel", child =
-            {num = 2, name = "DoAction", getactionfn = AnnoyLeader}
+            {num = 2, name = "DoAction", getactionfn = my_AnnoyLeader}
         }}
     }
 

@@ -21,9 +21,11 @@ SPDR = Sturdier Spider Den Decorations
 
 brains/beargerbrain.lua --------- FMBL
 brains/bunnymanbrain.lua -------- COMP
+brains/krampusbrain.lua --------- FMBL
 brains/mermbrain.lua ------------ COMP
 brains/mermguardbrain.lua ------- COMP
 brains/monkeybrain.lua ---------- FMBL
+brains/otterbrain.lua ----------- FMBL
 brains/pigbrain.lua ------------- COMP
 brains/powdermonkeybrain.lua ---- FMBL
 brains/rockybrain.lua ----------- COMP
@@ -48,6 +50,7 @@ prefabs/deciduoustrees.lua ------ BRCH
 prefabs/firesuppressor.lua ------ ICEF
 prefabs/frog.lua ---------------- FMBL
 prefabs/fruitfly.lua ------------ COMP
+prefabs/gelblob.lua ------------- FMBL
 prefabs/glommer.lua ------------- COMP
 prefabs/hutch.lua --------------- COMP
 prefabs/lavae_pet.lua ----------- COMP
@@ -67,6 +70,7 @@ prefabs/smallbird.lua ----------- COMP
 prefabs/spider.lua -------------- COMP / SPDR
 prefabs/spiderden.lua ----------- SPDR
 prefabs/waterprojectiles.lua ---- ICEF
+prefabs/worm_boss_util.lua ------ FMBL
 
 stategraphs/SGlureplant.lua ----- LEAF
 stategraphs/SGmoonspore.lua ----- MUSH

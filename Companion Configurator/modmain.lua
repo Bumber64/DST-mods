@@ -93,7 +93,7 @@ end
 Fixing misaligned brains:
 1. Uncomment variables "_G.brain_exam" and "_G.surgery_table" to enable those functions in console.
 2. Run "brain_exam(c_select(), {"target","homepos"})" on desired creature. Brain takes time to start, so don't use "brain_exam(c_spawn("smallbird"))".
-3. Compare result with the nodes being modified in existing surgery table (e.g., "smallbird_surgery",) looking for any numbered paths that are wrong.
+3. Compare result with the nodes being modified in existing surgery table (e.g., "smallbird_surgery"), looking for any numbered paths that are wrong.
 4. Fix up the numbered paths on the commented "surgery_table" commands located before each surgery table and run those to generate an updated table.
 5. Replace the existing table (e.g., "smallbird_surgery") with the output in the log.
 --]]

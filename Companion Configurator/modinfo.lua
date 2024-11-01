@@ -2,7 +2,7 @@
 name = "Companion Configurator" --formerly "Invincible Friendly Fruit Fly"
 description = "Modify follower mass, remove loyalty loss, and make them not trigger traps. Make non-combat followers invincible or non-targetable."
 author = "Bumber"
-version = "2.9"
+version = "2.10"
 forumthread = ""
 
 icon_atlas = "modicon.xml"
@@ -78,7 +78,7 @@ configuration_options =
         hover = "How difficult Chester and Hutch are to push around, or push others.",
         options =
         {
-            {description = "1", data = 1, hover = "Same as fruit flies, catcoons, and glommer."},
+            {description = "1", data = 1, hover = "Same as fruit flies, catcoons, and Glommer."},
             {description = "10", data = 10, hover = "Same as spider, tallbird, hounds, etc."},
             {description = "30", data = 30, hover = ""},
             {description = "50", data = 50, hover = "Same as pigs, merms, and pet lavae."},
@@ -245,7 +245,7 @@ configuration_options =
         hover = "How difficult extra-adorable lavae are to push around, or push others.",
         options =
         {
-            {description = "1", data = 1, hover = "Same as fruit flies, catcoons, and glommer."},
+            {description = "1", data = 1, hover = "Same as fruit flies, catcoons, and Glommer."},
             {description = "10", data = 10, hover = "Same as spider, tallbird, hounds, etc."},
             {description = "30", data = 30, hover = ""},
             {description = "Default", data = 0, hover = "50 when unmodded"},
@@ -279,7 +279,7 @@ configuration_options =
         options =
         {
             {description = "Suspend", data = 0, hover = "Temporarily disable while mounted."},
-            {description = "Always On", data = 1, hover = "Apply even while mounted. Player recieves mounted damage."},
+            {description = "Always On", data = 1, hover = "Apply even while mounted. Player receives mounted damage."},
         },
         default = 0,
     },
@@ -289,7 +289,7 @@ configuration_options =
         hover = "How difficult bonded beefalo are to push around, or push others.",
         options =
         {
-            {description = "1", data = 1, hover = "Same as fruit flies, catcoons, and glommer."},
+            {description = "1", data = 1, hover = "Same as fruit flies, catcoons, and Glommer."},
             {description = "10", data = 10, hover = "Same as spider, tallbird, hounds, etc."},
             {description = "30", data = 30, hover = ""},
             {description = "50", data = 50, hover = "Same as pigs, merms, and pet lavae."},
@@ -327,7 +327,7 @@ configuration_options =
         hover = "How difficult follower spiders are to push around, or push others.",
         options =
         {
-            {description = "1", data = 1, hover = "Same as fruit flies, catcoons, and glommer."},
+            {description = "1", data = 1, hover = "Same as fruit flies, catcoons, and Glommer."},
             {description = "Default", data = 0, hover = "10 when unmodded"},
             {description = "30", data = 30, hover = ""},
             {description = "50", data = 50, hover = "Same as pigs, merms, and pet lavae."},
@@ -375,7 +375,7 @@ configuration_options =
         hover = "How difficult follower pigs, merms, and bunnymen are to push around,\nor push others.",
         options =
         {
-            {description = "1", data = 1, hover = "Same as fruit flies, catcoons, and glommer."},
+            {description = "1", data = 1, hover = "Same as fruit flies, catcoons, and Glommer."},
             {description = "10", data = 10, hover = "Same as spider, tallbird, hounds, etc."},
             {description = "30", data = 30, hover = ""},
             {description = "Default", data = 0, hover = "50 when unmodded"},
@@ -426,7 +426,7 @@ configuration_options =
         hover = "How difficult follower rock lobsters are to push around, or push others.",
         options =
         {
-            {description = "1", data = 1, hover = "Same as fruit flies, catcoons, and glommer."},
+            {description = "1", data = 1, hover = "Same as fruit flies, catcoons, and Glommer."},
             {description = "10", data = 10, hover = "Same as spider, tallbird, hounds, etc."},
             {description = "30", data = 30, hover = ""},
             {description = "50", data = 50, hover = "Same as pigs, merms, and pet lavae."},
@@ -453,7 +453,7 @@ configuration_options =
         hover = "How difficult follower smallbirds and smallish tallbirds are to push around,\nor push others.",
         options =
         {
-            {description = "1", data = 1, hover = "Same as fruit flies, catcoons, and glommer."},
+            {description = "1", data = 1, hover = "Same as fruit flies, catcoons, and Glommer."},
             {description = "Default", data = 0, hover = "10 when unmodded"},
             {description = "30", data = 30, hover = ""},
             {description = "50", data = 50, hover = "Same as pigs, merms, and pet lavae."},

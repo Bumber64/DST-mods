@@ -4,11 +4,58 @@ if not _G.TheNet:GetIsServer() then
     return
 end
 
------------------------
--- Utility functions --
------------------------
+-------------------------------------------
+---------------- Settings -----------------
+-------------------------------------------
 
-local function ensure_loot(ld, item, chance) --make sure lootdropper has item as chance loot with given minimum chance
+local cfg_name =
+{
+    "batilisk_nitre",
+    "batilisk_wing",
+    "bee_honey",
+    "bee_stinger",
+    "bird_morsel",
+    "bird_feather",
+    "canary_saffron",
+    "bunnyman_carrot",
+    "bunnyman_meat",
+    "bunnyman_tail",
+    "butterfly_butter",
+    "catcoon_tail",
+    "cookiecutter_shell",
+    "dragonfly_egg",
+    "hound_tooth",
+    "hound_redgem",
+    "hound_bluegem",
+    "krampus_pack",
+    "mactusk_hat",
+    "mactusk_tusk",
+    "marotter_bottle",
+    "pigman_meat",
+    "pigman_skin",
+    "spider_silk",
+    "spider_gland",
+    "slurperpelt",
+    "slurtle_helm",
+    "snurtle_armor",
+    "tentacle_spot",
+    "voltgoat_horn",
+}
+
+local cfg = {}
+for _,s in ipairs(cfg_name) do
+    local n = GetModConfigData(s)
+    cfg[string.upper(s)] = type(n) == "number" and n or 0.0
+end
+
+cfg_name = nil --don't need table anymore
+
+-------------------------------------------
+--------------- Utility fns ---------------
+-------------------------------------------
+
+local function ensure_loot(ld, item, chance)
+    --make sure lootdropper has item as chance loot with given minimum chance
     if not ld or chance <= 0.0 then
         return
     end
@@ -19,7 +66,7 @@ local function ensure_loot(ld, item, chance) --make sure lootdropper has item as
 
     local lt = ld.chanceloottable and _G.LootTables[ld.chanceloottable] or nil
     if lt then
-        for _, t in ipairs(lt) do
+        for _,t in ipairs(lt) do
             if t[1] == item and t[2] > found_value then --better than previous
                 if t[2] >= chance then
                     return --requirement satisfied
@@ -33,7 +80,7 @@ local function ensure_loot(ld, item, chance) --make sure lootdropper has item as
     end
 
     if ld.chanceloot then
-        for _, t in pairs(ld.chanceloot) do
+        for _,t in pairs(ld.chanceloot) do
             if t.prefab == item and t.chance > found_value then --better than previous
                 if t.chance >= chance then
                     return --requirement satisfied
@@ -57,7 +104,7 @@ end
 
 local function reduce_loot(ld, item, chance) --reduce chanceloot drop rate on first drop exceeding rate
     if ld and ld.chanceloot and chance > 0 then
-        for _, t in pairs(ld.chanceloot) do
+        for _,t in pairs(ld.chanceloot) do
             if t.prefab == item and t.chance > chance then --found one
                 t.chance = chance
                 return
@@ -76,7 +123,7 @@ local function convert_rand_loot(ld) --convert lootdropper's randomloot into cha
         return
     end
 
-    for _, t in pairs(ld.randomloot) do
+    for _,t in pairs(ld.randomloot) do
         for i=1, n do --add extra drops for numrandomloot > 1
             ld:AddChanceLoot(t.prefab, t.weight / w)
         end
@@ -86,62 +133,72 @@ local function convert_rand_loot(ld) --convert lootdropper's randomloot into cha
     --keep ld.numrandomloot for haunted loot
 end
 
-----------------------
--- Prefab functions --
-----------------------
+-------------------------------------------
+----------------- Finally -----------------
+-------------------------------------------
 
-if GetModConfigData("batilisk_wing") > 0.0 then
-    AddPrefabPostInit("bat", function(inst)
-        ensure_loot(inst.components.lootdropper, 'batwing', GetModConfigData("batilisk_wing"))
+if cfg.BATILISK_NITRE > 0.0 or cfg.BATILISK_WING > 0.0 or cfg.VOLTGOAT_HORN > 0.0 then
+
+    local function adjust_loot_table(tbl, item, chance) --adjust LootTable entry
+        if chance <= 0.0 then
+            return --default
+        end
+        for _,t in ipairs(_G.LootTables[tbl] or {}) do
+            if t[1] == item then --found it
+                if t[2] < chance then
+                    t[2] = chance
+                end
+                break --one guarantee is sufficient
+            end
+        end
+    end
+
+    AddSimPostInit(function() --done once on world load
+        adjust_loot_table("bat_acidinfused", "nitre", cfg.BATILISK_NITRE)
+
+        adjust_loot_table("bat_acidinfused", "batwing", cfg.BATILISK_WING)
+        adjust_loot_table("bat", "batwing", cfg.BATILISK_WING)
+
+        adjust_loot_table("lightninggoat", "lightninggoathorn", cfg.VOLTGOAT_HORN)
+        adjust_loot_table("chargedlightninggoat", "lightninggoathorn", cfg.VOLTGOAT_HORN)
     end)
 end
 
-local honey_rate = GetModConfigData("bee_honey")
-local stinger_rate = GetModConfigData("bee_stinger")
-
-if honey_rate > 0.0 or stinger_rate > 0.0 then
-    AddPrefabPostInit("bee", function(inst)
-        local ld = inst.components.lootdropper
-
-        convert_rand_loot(ld)
-        ensure_loot(ld, 'honey', honey_rate)
-
-        reduce_loot(ld, 'stinger', stinger_rate)
-    end)
-
-    AddPrefabPostInit("killerbee", function(inst)
-        local ld = inst.components.lootdropper
-
-        convert_rand_loot(ld)
-        ensure_loot(ld, 'honey', honey_rate)
-
-        reduce_loot(ld, 'stinger', stinger_rate)
-    end)
-end
-
-if GetModConfigData("bird_morsel") > 0.0 or GetModConfigData("bird_feather") > 0.0 then
-    for k, v in pairs({crow = "feather_crow", puffin = "feather_crow", robin = "feather_robin", robin_winter = "feather_robin_winter"}) do
-        AddPrefabPostInit(k, function(inst)
+if cfg.BEE_HONEY > 0.0 or cfg.BEE_STINGER > 0.0 then
+    for _,v in ipairs({"bee", "killerbee"}) do
+        AddPrefabPostInit(v, function(inst)
             local ld = inst.components.lootdropper
-
             convert_rand_loot(ld)
-            ensure_loot(ld, 'smallmeat', GetModConfigData("bird_morsel"))
-            ensure_loot(ld, v, GetModConfigData("bird_feather"))
+
+            ensure_loot(ld, "honey", cfg.BEE_HONEY)
+            reduce_loot(ld, "stinger", cfg.BEE_STINGER) --stingers are trash
         end)
     end
 end
 
-if GetModConfigData("canary_saffron") > 0.0 then
+if cfg.BIRD_MORSEL > 0.0 or cfg.BIRD_FEATHER > 0.0 then
+    for k,v in pairs({crow = "feather_crow", puffin = "feather_crow", robin = "feather_robin", robin_winter = "feather_robin_winter"}) do
+        AddPrefabPostInit(k, function(inst)
+            local ld = inst.components.lootdropper
+            convert_rand_loot(ld)
+
+            ensure_loot(ld, "smallmeat", cfg.BIRD_MORSEL)
+            ensure_loot(ld, v, cfg.BIRD_FEATHER)
+        end)
+    end
+end
+
+if cfg.CANARY_SAFFRON > 0.0 then
     AddPrefabPostInit("canary", function(inst)
         local ld = inst.components.lootdropper
-
         convert_rand_loot(ld)
-        ensure_loot(ld, 'smallmeat', 1.0)
-        ensure_loot(ld, 'feather_canary', GetModConfigData("canary_saffron"))
+
+        ensure_loot(ld, "smallmeat", 1.0)
+        ensure_loot(ld, "feather_canary", cfg.CANARY_SAFFRON)
     end)
 end
 
-if GetModConfigData("bunnyman_carrot") > 0.0 or GetModConfigData("bunnyman_meat") > 0.0 or GetModConfigData("bunnyman_tail") > 0.0 then
+if cfg.BUNNYMAN_CARROT > 0.0 or cfg.BUNNYMAN_MEAT > 0.0 or cfg.BUNNYMAN_TAIL > 0.0 then
     local function is_beardlord(ld) --NOTE: only returns true after death
         local guy = ld.inst.causeofdeath
         guy = guy and guy.components.follower and guy.components.follower.leader or guy
@@ -166,78 +223,84 @@ if GetModConfigData("bunnyman_carrot") > 0.0 or GetModConfigData("bunnyman_meat"
             end
 
             convert_rand_loot(ld)
-            ensure_loot(ld, 'carrot', GetModConfigData("bunnyman_carrot"))
-            ensure_loot(ld, 'meat', GetModConfigData("bunnyman_meat"))
-            ensure_loot(ld, 'manrabbit_tail', GetModConfigData("bunnyman_tail"))
+            ensure_loot(ld, "carrot", cfg.BUNNYMAN_CARROT)
+            ensure_loot(ld, "meat", cfg.BUNNYMAN_MEAT)
+            ensure_loot(ld, "manrabbit_tail", cfg.BUNNYMAN_TAIL)
         end)
     end)
 end
 
-if GetModConfigData("butterfly_butter") > 0.0 then
+if cfg.BUTTERFLY_BUTTER > 0.0 then
     AddPrefabPostInit("butterfly", function(inst)
         local ld = inst.components.lootdropper
-
         convert_rand_loot(ld)
-        ensure_loot(ld, 'butterflywings', 1.0)
-        ensure_loot(ld, 'butter', GetModConfigData("butterfly_butter"))
+
+        ensure_loot(ld, "butterflywings", 1.0)
+        ensure_loot(ld, "butter", cfg.BUTTERFLY_BUTTER)
     end)
 end
 
-if GetModConfigData("catcoon_tail") > 0.0 then
+if cfg.CATCOON_TAIL > 0.0 then
     AddPrefabPostInit("catcoon", function(inst)
-        ensure_loot(inst.components.lootdropper, 'coontail', GetModConfigData("catcoon_tail"))
+        ensure_loot(inst.components.lootdropper, "coontail", cfg.CATCOON_TAIL)
     end)
 end
 
-if GetModConfigData("cookiecutter_shell") > 0.0 then
+if cfg.COOKIECUTTER_SHELL > 0.0 then
     AddPrefabPostInit("cookiecutter", function(inst)
-        ensure_loot(inst.components.lootdropper, 'cookiecuttershell', GetModConfigData("cookiecutter_shell"))
+        ensure_loot(inst.components.lootdropper, "cookiecuttershell", cfg.COOKIECUTTER_SHELL)
     end)
 end
 
-if GetModConfigData("dragonfly_egg") > 0.0 then
+if cfg.DRAGONFLY_EGG > 0.0 then
     AddPrefabPostInit("dragonfly", function(inst)
-        ensure_loot(inst.components.lootdropper, 'lavae_egg', GetModConfigData("dragonfly_egg"))
+        ensure_loot(inst.components.lootdropper, "lavae_egg", cfg.DRAGONFLY_EGG)
     end)
 end
 
-if GetModConfigData("hound_tooth") > 0.0 then
+if cfg.HOUND_TOOTH > 0.0 then
     AddPrefabPostInit("hound", function(inst)
-        ensure_loot(inst.components.lootdropper, 'houndstooth', GetModConfigData("hound_tooth"))
+        ensure_loot(inst.components.lootdropper, "houndstooth", cfg.HOUND_TOOTH)
     end)
 end
 
-if GetModConfigData("hound_redgem") > 0.0 then
+if cfg.HOUND_REDGEM > 0.0 then
     AddPrefabPostInit("firehound", function(inst)
-        ensure_loot(inst.components.lootdropper, 'redgem', GetModConfigData("hound_redgem"))
+        ensure_loot(inst.components.lootdropper, "redgem", cfg.HOUND_REDGEM)
     end)
 end
 
-if GetModConfigData("hound_bluegem") > 0.0 then
+if cfg.HOUND_BLUEGEM > 0.0 then
     AddPrefabPostInit("icehound", function(inst)
-        ensure_loot(inst.components.lootdropper, 'bluegem', GetModConfigData("hound_bluegem"))
+        ensure_loot(inst.components.lootdropper, "bluegem", cfg.HOUND_BLUEGEM)
     end)
 end
 
-if GetModConfigData("krampus_pack") > 0.0 then
+if cfg.KRAMPUS_PACK > 0.0 then
     AddPrefabPostInit("krampus", function(inst)
-        ensure_loot(inst.components.lootdropper, 'krampus_sack', GetModConfigData("krampus_pack"))
+        ensure_loot(inst.components.lootdropper, "krampus_sack", cfg.KRAMPUS_PACK)
     end)
 end
 
-if GetModConfigData("mactusk_hat") > 0.0 or GetModConfigData("mactusk_tusk") > 0.0 then
+if cfg.MACTUSK_HAT > 0.0 or cfg.MACTUSK_TUSK > 0.0 then
     AddPrefabPostInit("walrus", function(inst)
         local ld = inst.components.lootdropper
-        ensure_loot(ld, 'walrushat', GetModConfigData("mactusk_hat"))
-        ensure_loot(ld, 'walrus_tusk', GetModConfigData("mactusk_tusk"))
+        ensure_loot(ld, "walrushat", cfg.MACTUSK_HAT)
+        ensure_loot(ld, "walrus_tusk", cfg.MACTUSK_TUSK)
     end)
 end
 
-if GetModConfigData("pigman_meat") > 0.0 or GetModConfigData("pigman_skin") > 0.0 then
+if cfg.MAROTTER_BOTTLE > 0.0 then
+    AddPrefabPostInit("otter", function(inst)
+        ensure_loot(inst.components.lootdropper, "messagebottle", cfg.MAROTTER_BOTTLE)
+    end)
+end
+
+if cfg.PIGMAN_MEAT > 0.0 or cfg.PIGMAN_SKIN > 0.0 then
     local function adjust_pig_loot(ld)
         convert_rand_loot(ld)
-        ensure_loot(ld, 'meat', GetModConfigData("pigman_meat"))
-        ensure_loot(ld, 'pigskin', GetModConfigData("pigman_skin"))
+        ensure_loot(ld, "meat", cfg.PIGMAN_MEAT)
+        ensure_loot(ld, "pigskin", cfg.PIGMAN_SKIN)
     end
 
     AddPrefabPostInit("pigman", function(inst) --no need to bother with pigguard
@@ -259,93 +322,49 @@ if GetModConfigData("pigman_meat") > 0.0 or GetModConfigData("pigman_skin") > 0.
     end)
 end
 
-local silk_rate = GetModConfigData("spider_silk")
-local gland_rate = GetModConfigData("spider_gland")
-
-if silk_rate > 0.0 or gland_rate > 0.0 then
-    for _, v in pairs({"spider", "spider_warrior", "spider_hider", "spider_spitter", "spider_dropper", "spider_moon", "spider_healer", "spider_water"}) do
+if cfg.SPIDER_SILK > 0.0 or cfg.SPIDER_GLAND > 0.0 then
+    for _,v in ipairs({"spider", "spider_warrior", "spider_hider", "spider_spitter", "spider_dropper", "spider_moon", "spider_healer", "spider_water"}) do
         AddPrefabPostInit(v, function(inst)
             local ld = inst.components.lootdropper
-
             convert_rand_loot(ld)
 
-            if silk_rate >= 0.25 then
-                ensure_loot(ld, 'silk', silk_rate)
-            else
-                reduce_loot(ld, 'silk', silk_rate)
+            if cfg.SPIDER_SILK >= 0.25 then
+                ensure_loot(ld, "silk", cfg.SPIDER_SILK)
+            else --less trash
+                reduce_loot(ld, "silk", cfg.SPIDER_SILK)
             end
 
-            if gland_rate >= 0.25 then
-                ensure_loot(ld, 'spidergland', gland_rate)
-            else
-                reduce_loot(ld, 'spidergland', gland_rate)
+            if cfg.SPIDER_GLAND >= 0.25 then
+                ensure_loot(ld, "spidergland", cfg.SPIDER_GLAND)
+            else --less trash
+                reduce_loot(ld, "spidergland", cfg.SPIDER_GLAND)
             end
         end)
     end
 end
 
-if GetModConfigData("slurperpelt") > 0.0 then
+if cfg.SLURPERPELT > 0.0 then
     AddPrefabPostInit("slurper", function(inst)
-        ensure_loot(inst.components.lootdropper, 'slurper_pelt', GetModConfigData("slurperpelt"))
+        ensure_loot(inst.components.lootdropper, "slurper_pelt", cfg.SLURPERPELT)
     end)
 end
 
-if GetModConfigData("slurtle_helm") > 0.0 then
+if cfg.SLURTLE_HELM > 0.0 then
     AddPrefabPostInit("slurtle", function(inst)
-        ensure_loot(inst.components.lootdropper, 'slurtlehat', GetModConfigData("slurtle_helm"))
+        ensure_loot(inst.components.lootdropper, "slurtlehat", cfg.SLURTLE_HELM)
     end)
 end
 
-if GetModConfigData("snurtle_armor") > 0.0 then
+if cfg.SNURTLE_ARMOR > 0.0 then
     AddPrefabPostInit("snurtle", function(inst)
-        ensure_loot(inst.components.lootdropper, 'armorsnurtleshell', GetModConfigData("snurtle_armor"))
+        ensure_loot(inst.components.lootdropper, "armorsnurtleshell", cfg.SNURTLE_ARMOR)
     end)
 end
 
-if GetModConfigData("tentacle_spot") > 0.0 then
-    AddPrefabPostInit("tentacle", function(inst)
-        ensure_loot(inst.components.lootdropper, 'tentaclespots', GetModConfigData("tentacle_spot"))
-    end)
-
-    AddPrefabPostInit("tentacle_pillar", function(inst)
-        ensure_loot(inst.components.lootdropper, 'tentaclespots', GetModConfigData("tentacle_spot"))
-    end)
-end
-
-if GetModConfigData("voltgoat_horn") > 0.0 then
-    local do_horn = true
-
-    local function adjust_goat_horn() --adjust volt goat shared loot tables, only done once
-        if not do_horn then
-            return
-        end
-
-        local horn_rate = GetModConfigData("voltgoat_horn")
-
-        for _, t in ipairs(_G.LootTables['lightninggoat'] or {}) do
-            if t[1] == 'lightninggoathorn' then --found it
-                if t[2] < horn_rate then
-                    t[2] = horn_rate
-                end
-
-                break --one guarantee is sufficient
-            end
-        end
-
-        for _, t in ipairs(_G.LootTables['chargedlightninggoat'] or {}) do
-            if t[1] == 'lightninggoathorn' then
-                if t[2] < horn_rate then
-                    t[2] = horn_rate
-                end
-
-                break
-            end
-        end
-
-        do_horn = nil
+if cfg.TENTACLE_SPOT > 0.0 then
+    for _,v in ipairs({"tentacle", "tentacle_pillar"}) do
+        AddPrefabPostInit(v, function(inst)
+            ensure_loot(inst.components.lootdropper, "tentaclespots", cfg.TENTACLE_SPOT)
+        end)
     end
-
-    AddPrefabPostInit("lightninggoat", function(inst)
-        adjust_goat_horn()
-    end)
 end

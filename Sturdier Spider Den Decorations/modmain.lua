@@ -6,15 +6,18 @@ end
 
 local SpringCombatMod = _G.SpringCombatMod
 
+local DEN_HIT = GetModConfigData("den_hit") --0:Default, 1:NoQuake, 2:Player, 3:Razor
+local SPIDER_HIT = GetModConfigData("spider_hit") --0:Default, 1:Player, 2:Never
+
 -------------------------------------------
 --------------- Spiderden -----------------
 -------------------------------------------
 
-local function IsDefender(child) --default from prefabs/spiderden.lua
+local function IsDefender(child) --from prefabs/spiderden.lua
     return child.prefab == "spider_warrior"
 end
 
-local function SpawnDefenders(inst, attacker, do_break) --modified from prefabs/spiderden.lua
+local function my_SpawnDefenders(inst, attacker, do_break) --make breaking optional
     if inst.components.health:IsDead() then
         return
     end
@@ -61,10 +64,13 @@ local function SpawnDefenders(inst, attacker, do_break) --modified from prefabs/
     end
 end
 
-local function OnHit(inst, attacker) --modified from prefabs/spiderden.lua
-    local do_break = not (attacker and attacker:HasTag("quakedebris"))
+local function my_OnHit(inst, attacker) --break based on config
+    local do_break = attacker and
+        (DEN_HIT == 0 or --0:Default, 1:NoQuake, 2:Player, 3:Razor
+        DEN_HIT == 1 and not attacker:HasTag("quakedebris") or
+        DEN_HIT < 3 and attacker:HasTag("player"))
 
-    SpawnDefenders(inst, attacker, do_break)
+    my_SpawnDefenders(inst, attacker, do_break)
     if inst.components.sleepingbag then
         inst.components.sleepingbag:DoWakeUp()
     end
@@ -80,7 +86,7 @@ end
 
 local SPIDERDEN_TAGS = {"spiderden"} --default from prefabs/spider.lua
 
-local function SummonFriends(inst, attacker) --modified from prefabs/spider.lua
+local function my_SummonFriends(inst, attacker) --break den based on config
     local radius = (inst.prefab == "spider" or inst.prefab == "spider_warrior") and
         SpringCombatMod(TUNING.SPIDER_SUMMON_WARRIORS_RADIUS) or
         TUNING.SPIDER_SUMMON_WARRIORS_RADIUS
@@ -90,10 +96,10 @@ local function SummonFriends(inst, attacker) --modified from prefabs/spider.lua
         return
     end
 
-    if inst.bedazzled and attacker:HasTag("player") then
-        den.components.combat.onhitfn(den, attacker) --break den bedazzlement
+    if SPIDER_HIT == 0 or SPIDER_HIT == 1 and attacker:HasTag("player") then --0:Default, 1:Player, 2:Never
+        den.components.combat.onhitfn(den, attacker) --possibly break den bedazzlement
     else
-        SpawnDefenders(den, attacker)
+        my_SpawnDefenders(den, attacker)
     end
 end
 
@@ -102,11 +108,11 @@ end
 -------------------------------------------
 
 AddPrefabPostInit("spiderden", function(inst)
-    inst.components.combat:SetOnHit(OnHit)
+    inst.components.combat:SetOnHit(my_OnHit)
 end)
 
-for _, v in pairs({"spider", "spider_warrior", "spider_hider", "spider_spitter", "spider_dropper", "spider_moon", "spider_healer", "spider_water"}) do
+for _,v in pairs({"spider", "spider_warrior", "spider_hider", "spider_spitter", "spider_dropper", "spider_moon", "spider_healer", "spider_water"}) do
     AddPrefabPostInit(v, function(inst)
-        inst.components.combat:SetOnHit(SummonFriends)
+        inst.components.combat:SetOnHit(my_SummonFriends)
     end)
 end

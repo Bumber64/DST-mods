@@ -74,7 +74,7 @@ local cfg_name =
 }
 
 local cfg = {}
-for _, s in ipairs(cfg_name) do
+for _,s in ipairs(cfg_name) do
     local n = GetModConfigData(s)
     cfg[string.upper(s)] = type(n) == "number" and n or 0
 end

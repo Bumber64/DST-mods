@@ -247,7 +247,7 @@ if cfg.BEARGER_NOFUMBLE > 0 or cfg.BEARGER_NOSMASH > 1 then
 
         hack_success = nil --clear any previous false
         if cfg.BEARGER_NOFUMBLE > 0 then
-            OnHitOther, err_msg = HackUtil.GetUpvalue(my_commonfn, "OnHitOther")
+            OnHitOther, err_msg = HackUtil.GetUpvalue(commonfn, "OnHitOther")
             if not OnHitOther then
                 modprint("Prefabs.bearger.fn -> commonfn"..err_msg)
                 hack_success = false
@@ -255,7 +255,7 @@ if cfg.BEARGER_NOFUMBLE > 0 or cfg.BEARGER_NOSMASH > 1 then
         end
 
         if cfg.BEARGER_NOSMASH > 1 then --Trampling
-            OnDestroyOther, err_msg = HackUtil.GetUpvalue(my_commonfn, "OnCollide", "OnDestroyOther")
+            OnDestroyOther, err_msg = HackUtil.GetUpvalue(commonfn, "OnCollide", "OnDestroyOther")
             if not OnDestroyOther then
                 modprint("Prefabs.bearger.fn -> commonfn"..err_msg)
                 hack_success = false

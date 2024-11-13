@@ -69,6 +69,7 @@ local cfg_name =
 
     "smallbird_deadleader", --0:Default, 1:keepdeadleader
     "smallbird_mass", --0:Default
+    "teenbird_nogrow", --0:Default, 1:NoGrow
 
     "follow_ghost", --0:No, 1:Yes
 }
@@ -278,8 +279,8 @@ if cfg.LAVAE_PET_HEALTH > 0 or cfg.LAVAE_PET_NOTARGET > 0 or cfg.LAVAE_PET_NOFRE
             inst.components.locomotor:SetTriggersCreep(false)
         end
 
-        if cfg.LAVAE_PET_NOFREEZE == 1 then --just prevent Freezable:AddColdness from freezing
-            for _, v in pairs(inst.sg.sg.states) do
+        if cfg.LAVAE_PET_NOFREEZE == 1 then --just prevent freezable:AddColdness from freezing
+            for _,v in pairs(inst.sg.sg.states) do
                 v.tags["nofreeze"] = true
             end
             inst.sg.tags["nofreeze"] = true
@@ -628,7 +629,7 @@ if cfg.SPIDERS_NOTRAP > 0 or cfg.SPIDERS_DEADLEADER > 0 or cfg.SPIDERS_MASS > 0 
         end)
     end
 
-    for _, v in pairs({"spider", "spider_warrior", "spider_hider", "spider_spitter", "spider_dropper", "spider_moon", "spider_healer", "spider_water"}) do
+    for _,v in pairs({"spider", "spider_warrior", "spider_hider", "spider_spitter", "spider_dropper", "spider_moon", "spider_healer", "spider_water"}) do
         AddPrefabPostInit(v, function(inst)
             local f = inst.components.follower
             local old_leadfn = f.OnChangedLeader
@@ -752,7 +753,7 @@ if cfg.PIGMERMBUN_NOTRAP > 0 or cfg.PIGMERMBUN_LOYALTY > 0 or cfg.PIGMERMBUN_DEA
         end)
     end
 
-    for _, v in pairs({"pigman", "bunnyman", "merm", "mermguard",
+    for _,v in pairs({"pigman", "bunnyman", "merm", "mermguard",
         "merm_shadow", "merm_lunar", "mermguard_shadow", "mermguard_lunar"}) do
         AddPrefabPostInit(v, function(inst)
             local f = inst.components.follower
@@ -868,7 +869,7 @@ end
 --- Smallbirds and Smallish Tallbirds --
 ----------------------------------------
 
-if cfg.SMALLBIRD_DEADLEADER > 0 or cfg.SMALLBIRD_MASS > 0 then
+if cfg.SMALLBIRD_DEADLEADER > 0 or cfg.SMALLBIRD_MASS > 0 or cfg.TEENBIRD_NOGROW > 0 then
     local function smallbird_leadfn(inst, new_leader, prev_leader)
         local player_new = (new_leader and new_leader:HasTag("player")) and new_leader
         local player_old = (prev_leader and prev_leader:HasTag("player")) and prev_leader
@@ -931,18 +932,56 @@ if cfg.SMALLBIRD_DEADLEADER > 0 or cfg.SMALLBIRD_MASS > 0 then
         end)
     end
 
-    for _, v in pairs({"smallbird", "teenbird"}) do
-        AddPrefabPostInit(v, function(inst)
-            local f = inst.components.follower
-            local old_leadfn = f.OnChangedLeader
-            f.OnChangedLeader = function(inst, new_leader, prev_leader, ...)
-                smallbird_leadfn(inst, new_leader, prev_leader)
-                return old_leadfn and old_leadfn(inst, new_leader, prev_leader, ...) or nil
-            end
+    AddPrefabPostInit("smallbird", function(inst)
+        local f = inst.components.follower
+        local old_leadfn = f.OnChangedLeader
+        f.OnChangedLeader = function(inst, new_leader, prev_leader, ...)
+            smallbird_leadfn(inst, new_leader, prev_leader)
+            return old_leadfn and old_leadfn(inst, new_leader, prev_leader, ...) or nil
+        end
 
-            if cfg.SMALLBIRD_DEADLEADER > 0 then
-                f.keepdeadleader = true
+        if cfg.SMALLBIRD_DEADLEADER > 0 then
+            f.keepdeadleader = true
+        end
+    end)
+
+    AddPrefabPostInit("teenbird", function(inst)
+        local f = inst.components.follower
+        local old_leadfn = f.OnChangedLeader
+        f.OnChangedLeader = function(inst, new_leader, prev_leader, ...)
+            smallbird_leadfn(inst, new_leader, prev_leader)
+            return old_leadfn and old_leadfn(inst, new_leader, prev_leader, ...) or nil
+        end
+
+        if cfg.SMALLBIRD_DEADLEADER > 0 then
+            f.keepdeadleader = true
+        end
+
+        if cfg.TEENBIRD_NOGROW == 0 then --Default
+            return --skip the rest
+        end
+
+        local g = inst.components.growable
+        if g and g.stages[2] then --disable growing up
+            g.stages[2].fn = function() end
+        end
+
+        local t = inst.components.trader
+        local old_testfn = t.test
+        t:SetAcceptTest(function(inst, item)
+            if item.prefab == "monstermeat" then
+                return inst.components.growable and inst.components.growable.stage == 2
             end
+            return old_testfn and old_testfn(inst, item) or nil
         end)
-    end
+
+        local old_acceptfn = t.onaccept
+        t.onaccept = function(inst, giver, item)
+            if item.prefab == "monstermeat" then
+                inst.sg:GoToState("growup")
+            else
+                return old_acceptfn and old_acceptfn(inst, giver, item) or nil
+            end
+        end
+    end)
 end

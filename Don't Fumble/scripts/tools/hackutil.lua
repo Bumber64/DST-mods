@@ -34,6 +34,9 @@ local spairs = HackUtil.spairs --local copy for convenience
 --https://github.com/rezecib/Rezecib-s-Rebalance/blob/d4a41b0c28a117c1a4efadf220347a6db7164bb3/scripts/tools/upvaluehacker.lua
 --If returns nil, second return is error message. Just concat it after the name of your starting fn and print.
 function HackUtil.GetUpvalue(fn, ...)
+    if type(fn) ~= "function" then
+        return nil, " wasn't function ("..type(fn)..")!"
+    end
     local scope_fn = fn
     local cur_name, cur_fn
 
@@ -56,6 +59,9 @@ end
 --Find scope_fn with HackUtil.GetUpvalue first before calling.
 --If a fn with fn_name is found in scope_fn, will replace the fn with new_fn and return true.
 function HackUtil.SetUpvalue(scope_fn, new_fn, fn_name)
+    if type(scope_fn) ~= "function" or type(new_fn) ~= "function" then
+        return false
+    end
     local cur_name
 
     local i = 0

@@ -40,6 +40,7 @@ components/farming_manager.lua -- ICEF
 components/firedetector.lua ----- ICEF
 components/follower.lua --------- COMP
 components/freezable.lua -------- COMP
+components/witherable.lua ------- ICEF
 
 prefabs/acorn.lua --------------- BRCH
 prefabs/bearger.lua ------------- FMBL

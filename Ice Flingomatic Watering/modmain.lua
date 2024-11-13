@@ -33,10 +33,10 @@ local NO_FREEZE_FFFLY = GetModConfigData("no_freeze_fffly") --bool; snowballs do
 ---------- Find Existing Stuff ------------
 -------------------------------------------
 
-local NOTAGS
 local NONEMERGENCY_FIREONLY_TAGS
 local RegisterDetectedItem
 
+local my_NOTAGS --optionally add "friendlyfruitfly"
 local my_NONEMERGENCYTAGS --add "farmplantstress"
 
 local function find_fdetector_upvalues(self)
@@ -49,12 +49,6 @@ local function find_fdetector_upvalues(self)
     if not old_LFFAF then
         modprint("firedetector.Activate"..err_msg)
         return false
-    end
-
-    NOTAGS, err_msg = HackUtil.GetUpvalue(old_LFFAF, "NOTAGS")
-    if not NOTAGS then
-        modprint("NOTAGS not found in old LookForFiresAndFirestarters! Using default.")
-        NOTAGS = {"FX", "NOCLICK", "DECOR", "INLIMBO", "burnt", "player", "monster"}
     end
 
     NONEMERGENCY_FIREONLY_TAGS, err_msg = HackUtil.GetUpvalue(old_LFFAF, "NONEMERGENCY_FIREONLY_TAGS")
@@ -71,6 +65,15 @@ local function find_fdetector_upvalues(self)
                 self.detectedItems[target] = nil
             end, self, target)
         end
+    end
+
+    my_NOTAGS, err_msg = HackUtil.GetUpvalue(old_LFFAF, "NOTAGS")
+    if not my_NOTAGS then
+        modprint("NOTAGS not found in old LookForFiresAndFirestarters! Using default.")
+        my_NOTAGS = {"FX", "NOCLICK", "DECOR", "INLIMBO", "burnt", "player", "monster"}
+    end
+    if NO_FREEZE_FFFLY and insert_if_not_exist(my_NOTAGS, "friendlyfruitfly") then --don't target FFFly
+        modprint("Added \"friendlyfruitfly\" tag to NOTAGS.")
     end
 
     my_NONEMERGENCYTAGS, err_msg = HackUtil.GetUpvalue(old_LFFAF, "NONEMERGENCYTAGS")
@@ -90,11 +93,15 @@ end
 --------------- New Stuff -----------------
 -------------------------------------------
 
+local function NotExposedToRain(inst) --based on components/witherable.lua
+    return not _G.TheWorld.state.israining or inst.components.rainimmunity
+end
+
 local function GetTileCoords(target) --helper function
     return _G.TheWorld.Map:GetTileCoordsAtPoint(target.Transform:GetWorldPosition())
 end
 
-local function GetCenterCoords(target) --returns world coords of center of crop's tile
+local function GetCenterCoords(target) --returns world coords of crop's tile center
     return _G.TheWorld.Map:GetTileCenterPoint(GetTileCoords(target))
 end
 
@@ -157,18 +164,23 @@ end
 local function my_CheckTargetScore(target) --added crops; smarter witherable handling
     if not target:IsValid() then
         return 0
-    elseif target.components.burnable then
-        if target.components.burnable:IsBurning() then
+    end
+
+    local b = target.components.burnable
+    if b then
+        if b:IsBurning() then
             return 10, true
-        elseif target.components.burnable:IsSmoldering() then
+        elseif b:IsSmoldering() then
             return 9
         end
     end
 
     local w = target.components.witherable
-    if w and (w.protect_to_time == nil or w.protect_to_time < _G.GetTime() + 5.0) then --unprotected or soon to be
+    if w and not w:IsProtected() then --unprotected
         if w:CanWither() then --not already withered
-            if not SMART_TARGET_WITHER or _G.TheWorld.state.temperature > w.wither_temp - 1.0 then --option to skip if not hot
+            if not SMART_TARGET_WITHER or --option to only target vulnerable plants
+                (_G.GetLocalTemperature(target) > w.wither_temp and NotExposedToRain(target)) then --wither conditions
+
                 return 8
             end
         elseif w:CanRejuvenate() then
@@ -195,7 +207,7 @@ local function my_LookForFiresAndFirestarters(inst, self, force) --allow targeti
         return
     end
     local x, y, z = inst.Transform:GetWorldPosition()
-    local ents = _G.TheSim:FindEntities(x, y, z, self.range, nil, NOTAGS, (self.fireOnly and NONEMERGENCY_FIREONLY_TAGS) or my_NONEMERGENCYTAGS)
+    local ents = _G.TheSim:FindEntities(x, y, z, self.range, nil, my_NOTAGS, (self.fireOnly and NONEMERGENCY_FIREONLY_TAGS) or my_NONEMERGENCYTAGS)
     local target = nil
     local targetscore = 0
     for _,v in ipairs(ents) do

@@ -2,7 +2,7 @@
 name = "Companion Configurator" --formerly "Invincible Friendly Fruit Fly"
 description = "Modify follower mass, remove loyalty loss, and make them not trigger traps. Make non-combat followers invincible or non-targetable."
 author = "Bumber"
-version = "2.11"
+version = "2.12"
 forumthread = ""
 
 icon_atlas = "modicon.xml"
@@ -463,12 +463,12 @@ configuration_options =
     },
     {
         name = "teenbird_nogrow",
-        label = "No Tallbird Growth",
-        hover = "Prevent smallish tallbirds from naturally growing into tallbirds.\nCan be forced after sufficient time by feeding monster meat.",
+        label = "Tallbird Growth",
+        hover = "Prevent follower smallish tallbirds from growing into tallbirds.\n(If they lose loyalty, they will immediately grow up if old enough.)",
         options =
         {
             {description = "Default", data = 0, hover = ""},
-            {description = "No Grow", data = 1, hover = "Stop at teen stage. (Disabling this later may result in spontaneous tallbirds.)"},
+            {description = "No Grow", data = 1, hover = "Stop at teen stage."},
         },
         default = 0,
     },

@@ -870,6 +870,22 @@ end
 ----------------------------------------
 
 if cfg.SMALLBIRD_DEADLEADER > 0 or cfg.SMALLBIRD_MASS > 0 or cfg.TEENBIRD_NOGROW > 0 then
+    local function try_growup(inst) --grow teenbird if not following player
+        local g = inst and inst:IsValid() and inst.components.growable
+        if not g or g.stage ~= 2 then
+            return --not ready
+        end
+        local f = inst.components.follower
+        if f and (f.leader and f.leader:HasTag("player") or f.cached_player_leader_userid) then
+            return --following (or waiting for) player
+        end
+        inst.sg:GoToState("growup")
+    end
+
+    local function delay_grow_check(inst, stage, stagedata)
+        inst:DoTaskInTime(0, try_growup) --wait for follower component load
+    end
+
     local function smallbird_leadfn(inst, new_leader, prev_leader)
         local player_new = (new_leader and new_leader:HasTag("player")) and new_leader
         local player_old = (prev_leader and prev_leader:HasTag("player")) and prev_leader
@@ -885,6 +901,9 @@ if cfg.SMALLBIRD_DEADLEADER > 0 or cfg.SMALLBIRD_MASS > 0 or cfg.TEENBIRD_NOGROW
             if inst._default_mass then
                 inst.Physics:SetMass(inst._default_mass)
                 inst._default_mass = nil
+            end
+            if cfg.TEENBIRD_NOGROW > 0 and inst.prefab == "teenbird" then
+                try_growup(inst) --grow into adult if ready
             end
         end
 
@@ -932,56 +951,25 @@ if cfg.SMALLBIRD_DEADLEADER > 0 or cfg.SMALLBIRD_MASS > 0 or cfg.TEENBIRD_NOGROW
         end)
     end
 
-    AddPrefabPostInit("smallbird", function(inst)
-        local f = inst.components.follower
-        local old_leadfn = f.OnChangedLeader
-        f.OnChangedLeader = function(inst, new_leader, prev_leader, ...)
-            smallbird_leadfn(inst, new_leader, prev_leader)
-            return old_leadfn and old_leadfn(inst, new_leader, prev_leader, ...) or nil
-        end
-
-        if cfg.SMALLBIRD_DEADLEADER > 0 then
-            f.keepdeadleader = true
-        end
-    end)
-
-    AddPrefabPostInit("teenbird", function(inst)
-        local f = inst.components.follower
-        local old_leadfn = f.OnChangedLeader
-        f.OnChangedLeader = function(inst, new_leader, prev_leader, ...)
-            smallbird_leadfn(inst, new_leader, prev_leader)
-            return old_leadfn and old_leadfn(inst, new_leader, prev_leader, ...) or nil
-        end
-
-        if cfg.SMALLBIRD_DEADLEADER > 0 then
-            f.keepdeadleader = true
-        end
-
-        if cfg.TEENBIRD_NOGROW == 0 then --Default
-            return --skip the rest
-        end
-
-        local g = inst.components.growable
-        if g and g.stages[2] then --disable growing up
-            g.stages[2].fn = function() end
-        end
-
-        local t = inst.components.trader
-        local old_testfn = t.test
-        t:SetAcceptTest(function(inst, item)
-            if item.prefab == "monstermeat" then
-                return inst.components.growable and inst.components.growable.stage == 2
+    for _,v in pairs({"smallbird", "teenbird"}) do
+        AddPrefabPostInit(v, function(inst)
+            local f = inst.components.follower
+            local old_leadfn = f.OnChangedLeader
+            f.OnChangedLeader = function(inst, new_leader, prev_leader, ...)
+                smallbird_leadfn(inst, new_leader, prev_leader)
+                return old_leadfn and old_leadfn(inst, new_leader, prev_leader, ...) or nil
             end
-            return old_testfn and old_testfn(inst, item) or nil
+
+            if cfg.SMALLBIRD_DEADLEADER > 0 then
+                f.keepdeadleader = true
+            end
+
+            if cfg.TEENBIRD_NOGROW > 0 and inst.prefab == "teenbird" then
+                local g = inst.components.growable
+                if g and g.stages[2] then --don't grow up if follower
+                    g.stages[2].fn = delay_grow_check
+                end
+            end
         end)
-
-        local old_acceptfn = t.onaccept
-        t.onaccept = function(inst, giver, item)
-            if item.prefab == "monstermeat" then
-                inst.sg:GoToState("growup")
-            else
-                return old_acceptfn and old_acceptfn(inst, giver, item) or nil
-            end
-        end
-    end)
+    end
 end

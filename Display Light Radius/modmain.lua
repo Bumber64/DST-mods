@@ -2,17 +2,30 @@
 local _G = GLOBAL
 local TheInput = _G.TheInput
 
-local TOGGLE_KEY = GetModConfigData("toggle_key")
-local HIGHLIGHT_MODE = GetModConfigData("highlight_mode")
-local LIGHT_COLOR = GetModConfigData("light_color")
-local HIGHLIGHT_FREQ = 0.1
-local DISCOVER_RADIUS = 80 --render range
-local DISCOVER_FREQ = GetModConfigData("discover_rate") --1, 2, or 5
-local LIGHT_FREQ = GetModConfigData("light_refresh") --0.1, 0.2, or 0.5
-local MAX_LIGHT_FAILS = DISCOVER_FREQ / LIGHT_FREQ - 1 --just short of one discovery cycle
-local LIGHT_THRESH = 0.075 --minimum safe light value
+local cfg_name =
+{
+    "start_enabled", --bool; start with indicators on if true
+    "toggle_key", --num; indicates A-Z or F1-F12
+    "highlight_mode", --num; 0:Disabled, 1:Inspect, 2:Mouseover
+    "radius_color", --bool; color indicator if true
+    "radius_opacity", --num; opacity of indicator
+    "light_thresh", --num; 0.05 dark, 0.075 light, 0.1 sanity
+    "radius_freq", --num; seconds per radius refresh
+    "discover_freq", --num; seconds per discover check
+}
 
-light_radius_toggle_on = GetModConfigData("start_enabled")
+local cfg = {}
+for _,s in ipairs(cfg_name) do --these are boolean
+    cfg[string.upper(s)] = GetModConfigData(s)
+end
+
+cfg_name = nil --don't need table anymore
+
+local DISCOVER_RADIUS = 80 --render range
+local HIGHLIGHT_FREQ = 0.1 --resonably responsive
+local MAX_LIGHT_FAILS = math.ceil(cfg.DISCOVER_FREQ / cfg.RADIUS_FREQ) - 1 --just short of one discovery cycle
+
+local radius_toggle_state = cfg.START_ENABLED
 local last_target = nil --last highlight target
 local highlight_task = nil
 local discover_task = nil
@@ -61,7 +74,7 @@ local function lightradius(parent) --create indicator and attach to parent
     inst.AnimState:SetOrientation(_G.ANIM_ORIENTATION.OnGround)
     inst.AnimState:SetLayer(_G.LAYER_BACKGROUND)
     inst.AnimState:SetSortOrder(1)
-    inst.AnimState:SetMultColour(0, 0, 0, 1)
+    inst.AnimState:SetMultColour(0, 0, 0, cfg.RADIUS_OPACITY)
 
     inst.my_parent = parent
     inst.entity:SetParent(parent.entity)
@@ -76,7 +89,7 @@ local function lightradius(parent) --create indicator and attach to parent
 
         local l = inst.my_parent.Light
         if l and l:IsEnabled() then
-            if LIGHT_COLOR then
+            if cfg.RADIUS_COLOR then
                 local r, g, b = l:GetColour()
                 inst.AnimState:SetAddColour(r, g, b, 0)
             else
@@ -84,8 +97,9 @@ local function lightradius(parent) --create indicator and attach to parent
             end
 
             inst._fail_count = 0
-            local scale = math.sqrt(radius_for_threshold(l, LIGHT_THRESH)) * PLACER_RATIO
-            inst.Transform:SetScale(scale, scale, scale)
+            local scale = math.sqrt(radius_for_threshold(l, cfg.LIGHT_THRESH)) * PLACER_RATIO
+            local sx, sy, sz = inst.my_parent.Transform:GetScale()
+            inst.Transform:SetScale(scale/sx, scale/sy, scale/sz)
         elseif inst._fail_count == 0 then
             inst._fail_count = 1
             inst.AnimState:SetAddColour(0, 0, 0, 0)
@@ -107,7 +121,7 @@ local function lightradius(parent) --create indicator and attach to parent
     inst:ListenForEvent("killallradius", inst.orphaned, _G.TheWorld)
 
     inst.update_radius()
-    inst._update_task = inst:DoPeriodicTask(LIGHT_FREQ, inst.update_radius)
+    inst._update_task = inst:DoPeriodicTask(cfg.RADIUS_FREQ, inst.update_radius)
 
     return inst
 end
@@ -130,13 +144,12 @@ local function detach_radius(inst)
     inst._light_radius.orphaned()
 end
 
-local NO_INSPECT = (HIGHLIGHT_MODE == 2)
 local function highlight_fn()
-    if light_radius_toggle_on or not in_game() then
+    if radius_toggle_state or not in_game() then
         return
     end
 
-    if NO_INSPECT or TheInput:IsControlPressed(_G.CONTROL_FORCE_INSPECT) then
+    if cfg.HIGHLIGHT_MODE > 1 or TheInput:IsControlPressed(_G.CONTROL_FORCE_INSPECT) then
         local target = TheInput:GetHUDEntityUnderMouse() and nil or TheInput:GetWorldEntityUnderMouse()
         if target ~= last_target then --new target
             detach_radius(last_target) --does nothing if last_target is nil
@@ -171,20 +184,20 @@ local function toggle_fn() --apply current toggle state
         last_target = nil
     end
 
-    if light_radius_toggle_on then
+    if radius_toggle_state then
         discover_fn()
-        discover_task = _G.ThePlayer:DoPeriodicTask(DISCOVER_FREQ, discover_fn)
+        discover_task = _G.ThePlayer:DoPeriodicTask(cfg.DISCOVER_FREQ, discover_fn)
     else
         _G.TheWorld:PushEvent("killallradius")
-        if HIGHLIGHT_MODE ~= 0 then
+        if cfg.HIGHLIGHT_MODE > 0 then
             highlight_task = _G.ThePlayer:DoPeriodicTask(HIGHLIGHT_FREQ, highlight_fn)
         end
     end
 end
 
-TheInput:AddKeyDownHandler(TOGGLE_KEY, function()
+TheInput:AddKeyDownHandler(cfg.TOGGLE_KEY, function()
     if in_game() then
-        light_radius_toggle_on = not light_radius_toggle_on
+        radius_toggle_state = not radius_toggle_state
         toggle_fn()
     end
 end)
@@ -192,7 +205,7 @@ end)
 AddPlayerPostInit(function(inst)
     inst:DoTaskInTime(0, function(inst)
         if inst == _G.ThePlayer then
-            toggle_fn() --initialize based on start_enabled
+            toggle_fn() --initialize based on radius_toggle_state
         end
     end)
 end)

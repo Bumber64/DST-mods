@@ -26,9 +26,9 @@ local function driedplantmeat()
     inst.AnimState:SetBank("plantmeat_dried")
     inst.AnimState:SetBuild("plantmeat_dried")
     inst.AnimState:PlayAnimation("idle_dried_plant")
+    inst.scrapbook_anim = "idle_dried_plant"
 
     inst:AddTag("meat")
-    inst:AddTag("dryable")
     inst:AddTag("lureplant_bait")
 
     MakeInventoryFloatable(inst)

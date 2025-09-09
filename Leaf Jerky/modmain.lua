@@ -1,4 +1,6 @@
 
+local _G = GLOBAL
+
 PrefabFiles =
 {
     "plantmeat_dried",
@@ -7,11 +9,10 @@ PrefabFiles =
 ----------------------------------------
 ------------- Descriptions -------------
 ----------------------------------------
-local _G = GLOBAL
-local STRINGS = _G.STRINGS
-STRINGS.NAMES.PLANTMEAT_DRIED = "Leaf Jerky"
 
-local char_text =
+_G.STRINGS.NAMES.PLANTMEAT_DRIED = "Leaf Jerky"
+
+local char_text = --Reuse speech because I'm not going to write personalities
 {
     GENERIC = "MONSTERMEAT_DRIED",
     WILLOW = "LEAFLOAF",
@@ -32,16 +33,17 @@ local char_text =
     WANDA = "LEAFYMEATBURGER",
 }
 for ch, txt in pairs(char_text) do
-    STRINGS.CHARACTERS[ch].DESCRIBE.PLANTMEAT_DRIED = STRINGS.CHARACTERS[ch].DESCRIBE[txt]
+    _G.STRINGS.CHARACTERS[ch].DESCRIBE.PLANTMEAT_DRIED = _G.STRINGS.CHARACTERS[ch].DESCRIBE[txt]
 end
 
 ----------------------------------------
 --------------- Recipes ----------------
 ----------------------------------------
+
 AddIngredientValues({"plantmeat_dried"}, {meat = 1})
 
 local pf = require("preparedfoods")
-local recipefns =
+local recipefns = --Let our leaf jerky satisfy leafy meat requirements
 {
     leafloaf = (function(cooker, names, tags)
         return ((names.plantmeat or 0) + (names.plantmeat_cooked or 0) + (names.plantmeat_dried or 0) >= 2)
@@ -64,9 +66,9 @@ local recipefns =
     end),
 }
 for k, v in pairs(recipefns) do
-    local r = pf[k]
-    r.test = v
-    AddCookerRecipe("cookpot", r)
+    local r = pf[k] --Recipe by name
+    r.test = v --Replace the test fn
+    AddCookerRecipe("cookpot", r) --Update the recipes
     AddCookerRecipe("portablecookpot", r)
     AddCookerRecipe("archive_cookpot", r)
 end
@@ -74,6 +76,7 @@ end
 ----------------------------------------
 ------------- Server Stuff -------------
 ----------------------------------------
+
 if not _G.TheNet:GetIsServer() then
     return
 end
@@ -81,31 +84,14 @@ end
 AddPrefabPostInit("plantmeat", function(inst)
     inst:AddComponent("dryable")
     inst.components.dryable:SetProduct("plantmeat_dried")
-    inst.components.dryable:SetDryTime(TUNING.DRY_FAST)
+    inst.components.dryable:SetDryTime(_G.TUNING.DRY_FAST)
+    --Unused animations already exist for leafy meat. Just add ours for the dried product.
+    inst.components.dryable:SetDriedBuildFile("plantmeat_dried")
 end)
 
-AddPrefabPostInit("meatrack", function(inst)
-    local oldfn = inst.components.dryer.ondonedrying
-    local function new_ondonedrying(inst, product, buildfile)
-        if product == "plantmeat_dried" then
-            if _G.POPULATING then
-                inst.AnimState:PlayAnimation("idle_full")
-            else
-                inst.AnimState:PlayAnimation("drying_pst")
-                inst.AnimState:PushAnimation("idle_full", false)
-            end
-            inst.AnimState:OverrideSymbol("swap_dried", "plantmeat_dried", "plantmeat_dried")
-        elseif oldfn then
-            oldfn(inst, product, buildfile)
-        end
-    end
-
-    inst.components.dryer:SetDoneDryingFn(new_ondonedrying)
-end)
-
-AddStategraphPostInit("lureplant", function(sg)
+AddStategraphPostInit("lureplant", function(sg) --Make sure lureplants properly use our animation
     local oldfn = sg.states["showbait"].onenter
-    local function new_onenter(inst, playanim)
+    local function my_onenter(inst, playanim)
         if inst.lure and inst.lure.prefab == "plantmeat_dried" then
             inst.AnimState:OverrideSymbol("swap_dried", "plantmeat_dried", "plantmeat_dried")
             inst.Physics:Stop()
@@ -115,5 +101,5 @@ AddStategraphPostInit("lureplant", function(sg)
         end
     end
 
-    sg.states["showbait"].onenter = new_onenter
+    sg.states["showbait"].onenter = my_onenter
 end)
